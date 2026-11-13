@@ -1,16 +1,23 @@
-﻿from google.adk.agents import Agent
+"""Cria o agente usando a configuração central do projeto."""
 
-from .prompt import instruction
-from .rag_lexical import buscar_casos_semelhantes
+from google.adk.agents import Agent
+
+from .config_agent import (
+    AGENT_DESCRIPTION,
+    AGENT_NAME,
+    GENERATION_CONFIG,
+    INSTRUCTION,
+    MODEL,
+    TOOLS,
+)
 
 
 root_agent = Agent(
-    name="agente_triagem",
-    model="gemini-3.5-flash-lite",
-    description=(
-        "Agente de inteligência artificial para triagem "
-        "de contestações financeiras da PagFácil."
-    ),
-    instruction=instruction,
-    tools=[buscar_casos_semelhantes],
+    name=AGENT_NAME,
+    model=MODEL,
+    description=AGENT_DESCRIPTION,
+    instruction=INSTRUCTION,
+    tools=TOOLS,
+    generate_content_config=GENERATION_CONFIG,
 )
+

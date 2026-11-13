@@ -1,13 +1,15 @@
 ﻿"""Busca exemplos e documentos internos usando BM25."""
-
+import re
 import json
 from functools import lru_cache
 from pathlib import Path
 
+from integrations.contratos import HISTORICO_CFPB, ler_csv
 from retriever.bm25 import BuscaBM25
 
 
 PASTA_PROJETO = Path(__file__).resolve().parent.parent
+LIMITE_CFPB = 20_000 
 ARQUIVO_EXEMPLOS = PASTA_PROJETO / "data" / "exemplos_reclamacoes.json"
 PASTA_CONHECIMENTO = PASTA_PROJETO / "knowledge_base"
 
@@ -74,23 +76,25 @@ def carregar_exemplos() -> list[dict[str, str]]:
     return documentos
 
 
-def carregar_documentos() -> list[dict[str, str]]:
-    """Combina exemplos de reclamações e arquivos Markdown da base de conhecimento."""
-    documentos = carregar_exemplos()
+def carregar_cfpb() -> list[dict[str, str]]:
+    """Lê a amostra tratada do CFPB entregue pela Eng. de Dados (opcional)."""
+    caminho, _ = HISTORICO_CFPB.localizar_arquivo()
+    if caminho is None:
+        return []
 
-    if not PASTA_CONHECIMENTO.exists():
-        return documentos
-
-    for arquivo in sorted(PASTA_CONHECIMENTO.glob("*.md")):
-        texto = arquivo.read_text(encoding="utf-8-sig").strip()
-        if texto:
-            documentos.append(
-                {
-                    "fonte": str(arquivo.relative_to(PASTA_PROJETO)),
-                    "texto": texto,
-                }
-            )
-
+    registros = HISTORICO_CFPB.padronizar(ler_csv(caminho), caminho.name)
+    documentos = []
+    for numero, registro in enumerate(registros[:LIMITE_CFPB], start=1):
+        if not registro["relato"]:
+            continue
+        identificador = registro["id_reclamacao"] or str(numero)
+        partes = (registro["produto"], registro["subproduto"], registro["problema"],
+                  registro["subproblema"], registro["relato"],
+                  registro["resposta_empresa"])
+        documentos.append({
+            "fonte": f"{caminho.name} (reclamação {identificador})",
+            "texto": " ".join(p for p in partes if p),
+        })
     return documentos
 
 
@@ -135,3 +139,32 @@ def buscar_casos_semelhantes(consulta: str) -> str:
         )
 
     return "\n".join(respostas)
+
+
+def dividir_markdown(texto: str) -> list[tuple[str, str]]:
+    """Divide o Markdown em seções pelos títulos (#, ##, ###)."""
+    secoes = re.split(r"\n(?=#{1,3} )", "\n" + texto)
+    resultado = []
+    for secao in secoes:
+        secao = secao.strip()
+        if not secao:
+            continue
+        titulo = secao.splitlines()[0].lstrip("# ").strip()
+        resultado.append((titulo, secao))
+    return resultado
+
+
+def carregar_documentos() -> list[dict[str, str]]:
+    """Exemplos + histórico CFPB + seções dos Markdown da base de conhecimento."""
+    documentos = carregar_exemplos() + carregar_cfpb()
+    if not PASTA_CONHECIMENTO.exists():
+        return documentos
+
+    for arquivo in sorted(PASTA_CONHECIMENTO.glob("*.md")):
+        texto = arquivo.read_text(encoding="utf-8-sig").strip()
+        for titulo, secao in dividir_markdown(texto):
+            documentos.append({
+                "fonte": f"{arquivo.relative_to(PASTA_PROJETO)} > {titulo}",
+                "texto": secao,
+            })
+    return documentos

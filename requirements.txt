@@ -1,0 +1,10 @@
+google-adk
+rank-bm25
+tzdata
+
+# Opcional: ler as respostas do Forms direto do Google Sheets
+gspread
+google-auth
+
+# Opcional: consulta pontual da Gold no Databricks (senão, use CSV)
+# databricks-sql-connector>=3.0.0

@@ -3,3 +3,8 @@
 __pycache__/
 *.pyc
 .venv/
+data/entrada/*
+!data/entrada/.gitkeep
+data/saida/*
+!data/saida/.gitkeep
+service_account*.json

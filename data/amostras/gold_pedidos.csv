@@ -1,0 +1,4 @@
+id_pedido,nome_cliente,status_pedido,data_pedido,data_prevista_entrega,data_entrega,dias_atraso,status_entrega,descricao_pedido
+PED-1001,Cliente Fictício 1,EM_TRANSPORTE,2026-11-06,2026-11-10,,,ABERTO,Cafeteira
+PED-1002,Cliente Fictício 2,ENTREGUE,2026-11-07,2026-11-12,2026-11-11,0,ENTREGUE,Fone de ouvido
+PED-1003,Cliente Fictício 3,EM_TRANSPORTE,2026-11-12,2026-11-20,,,ABERTO,Mochila
