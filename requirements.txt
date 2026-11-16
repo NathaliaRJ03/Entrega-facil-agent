@@ -1,5 +1,4 @@
 google-adk[openai]
-anthropic>=0.78
 rank-bm25
 tzdata
 

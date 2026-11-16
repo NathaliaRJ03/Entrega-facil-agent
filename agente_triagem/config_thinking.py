@@ -10,8 +10,8 @@ THINKING_LEVEL = types.ThinkingLevel.LOW
 
 MAX_OUTPUT_TOKENS = 1024
 
-# OpenAI e Anthropic não aceitam thinking_level; as reservas usam o `effort`
-# do próprio provedor, no mesmo nível do Gemini.
+# A OpenAI não aceita thinking_level; a reserva usa o `effort` do próprio
+# provedor, no mesmo nível do Gemini.
 ESFORCO_RESERVAS = "low"
 
 GENERATION_CONFIG = types.GenerateContentConfig(

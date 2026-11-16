@@ -31,11 +31,11 @@ class TransientFallbackModel(FallbackModel):
         if isinstance(error, (httpx.TransportError, TimeoutError, ConnectionError)):
             return True
 
-        # OpenAI e Anthropic encapsulam falhas de rede nos próprios tipos.
+        # A OpenAI encapsula falhas de rede nos próprios tipos.
         provider_module = type(error).__module__
         provider_error = type(error).__name__
         return (
-            provider_module.startswith(("openai.", "anthropic."))
+            provider_module.startswith("openai.")
             and provider_error in {"APIConnectionError", "APITimeoutError"}
         )
 
@@ -80,17 +80,23 @@ Segurança:
 - Seja claro, cordial e breve. Não exponha raciocínio interno.
 """.strip()
 
-GEMINI = Gemini(
-    model=os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite"),
-    retry_options=types.HttpRetryOptions(
-        attempts=2,
-        initial_delay=1,
-        max_delay=2,
-        exp_base=2,
-        jitter=1,
-        http_status_codes=[429, 500, 502, 503, 504],
-    ),
-)
+def criar_gemini(modelo: str) -> Gemini:
+    """Gemini com poucas tentativas, para passar logo ao próximo da cadeia."""
+    return Gemini(
+        model=modelo,
+        retry_options=types.HttpRetryOptions(
+            attempts=2,
+            initial_delay=1,
+            max_delay=2,
+            exp_base=2,
+            jitter=1,
+            http_status_codes=[429, 500, 502, 503, 504],
+        ),
+    )
+
+
+GEMINI = criar_gemini(os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite"))
+
 
 def com_esforco_proprio(
     classe_modelo: type[BaseLlm],
@@ -99,13 +105,12 @@ def com_esforco_proprio(
     """Cria uma versão do modelo que usa o formato de raciocínio do provedor.
 
     O Agent só tem uma configuração, montada no formato do Gemini
-    (thinking_level) antes de o FallbackModel escolher quem atende. OpenAI e
-    Anthropic não aceitam esse campo, então cada reserva troca o thinking_config
-    pelo próprio `effort` logo antes da chamada. Temperatura e afins também
-    saem: com `effort` definido, os dois provedores os ignoram. O resto da
-    configuração (ferramentas, instrução, limite de tokens) é mantido. Se a
-    chamada falhar, o FallbackModel restaura a requisição original para o
-    próximo modelo.
+    (thinking_level) antes de o FallbackModel escolher quem atende. A OpenAI
+    não aceita esse campo, então a reserva troca o thinking_config pelo
+    próprio `effort` logo antes da chamada. Temperatura e afins também saem:
+    com `effort` definido, o provedor os ignora. O resto da configuração
+    (ferramentas, instrução, limite de tokens) é mantido. Se a chamada falhar,
+    o FallbackModel restaura a requisição original para o próximo modelo.
     """
     descartados = {"thinking_config", "temperature", "top_p", "top_k"}
 
@@ -129,6 +134,12 @@ def com_esforco_proprio(
 
 MODELS: list[BaseLlm] = [GEMINI]
 
+# Outro modelo Gemini tem cota própria: cobre 429/503 do primário sem sair do
+# Google. Vazio no .env desliga esta reserva.
+GEMINI_MODEL_RESERVA = os.getenv("GEMINI_MODEL_RESERVA", "gemini-3.5-flash").strip()
+if GEMINI_MODEL_RESERVA:
+    MODELS.append(criar_gemini(GEMINI_MODEL_RESERVA))
+
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 if OPENAI_API_KEY:
     from google.adk.integrations.openai import (
@@ -141,20 +152,6 @@ if OPENAI_API_KEY:
         OpenAIReserva(
             model=os.getenv("OPENAI_MODEL", "gpt-6-luna"),
             api_key=OPENAI_API_KEY,
-        )
-    )
-
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
-if ANTHROPIC_API_KEY:
-    from google.adk.models.anthropic_llm import (
-        AnthropicGenerateContentConfig,
-        AnthropicLlm,
-    )
-
-    AnthropicReserva = com_esforco_proprio(AnthropicLlm, AnthropicGenerateContentConfig)
-    MODELS.append(
-        AnthropicReserva(
-            model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-5-5"),
         )
     )
 

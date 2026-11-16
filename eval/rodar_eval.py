@@ -477,7 +477,7 @@ def avaliar_reservas() -> tuple[int, int]:
 
     import httpx
     from google.adk.models import BaseLlm, LlmRequest, LlmResponse
-    from google.adk.models.anthropic_llm import AnthropicGenerateContentConfig
+    from google.adk.integrations.openai import OpenAIGenerateContentConfig
     from google.genai import errors, types
 
     from agente_triagem import config_agent
@@ -520,14 +520,14 @@ def avaliar_reservas() -> tuple[int, int]:
         return ""
 
     def caso_conversao() -> tuple[bool, str]:
-        Reserva = config_agent.com_esforco_proprio(ModeloFalso, AnthropicGenerateContentConfig)
+        Reserva = config_agent.com_esforco_proprio(ModeloFalso, OpenAIGenerateContentConfig)
         reserva = Reserva(model="reserva", recebidas=[])
         resposta = asyncio.run(quem_responde(ModeloFalso(model="primario", falha="503"), reserva))
         config = reserva.recebidas[0] if reserva.recebidas else None
         problemas = []
         if resposta != "reserva":
             problemas.append(f"respondeu {resposta!r}")
-        if not isinstance(config, AnthropicGenerateContentConfig):
+        if not isinstance(config, OpenAIGenerateContentConfig):
             problemas.append("a reserva não recebeu a configuração do próprio provedor")
         else:
             if config.effort != ESFORCO_RESERVAS:
