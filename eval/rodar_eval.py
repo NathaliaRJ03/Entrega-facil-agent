@@ -471,6 +471,126 @@ def avaliar_busca() -> tuple[int, int]:
     return aprovados, len(casos) + 1
 
 
+def avaliar_reservas() -> tuple[int, int]:
+    """Troca de modelo e resposta de falha, com modelos falsos (sem custo de API)."""
+    import asyncio
+
+    import httpx
+    from google.adk.models import BaseLlm, LlmRequest, LlmResponse
+    from google.adk.models.anthropic_llm import AnthropicGenerateContentConfig
+    from google.genai import errors, types
+
+    from agente_triagem import config_agent
+    from agente_triagem.config_thinking import ESFORCO_RESERVAS, GENERATION_CONFIG
+
+    class ModeloFalso(BaseLlm):
+        falha: str = ""
+        recebidas: list = []
+
+        async def generate_content_async(self, llm_request, stream=False):
+            self.recebidas.append(llm_request.config)
+            if self.falha == "503":
+                raise errors.ServerError(503, {"error": {"message": "eval"}})
+            if self.falha == "conexao":
+                raise httpx.ConnectError("eval")
+            if self.falha == "400":
+                raise errors.ClientError(400, {"error": {"message": "eval"}})
+            yield LlmResponse(
+                content=types.Content(role="model", parts=[types.Part(text=self.model)])
+            )
+
+    def requisicao() -> LlmRequest:
+        return LlmRequest(
+            contents=[types.Content(role="user", parts=[types.Part(text="oi")])],
+            config=GENERATION_CONFIG.model_copy(
+                update={"system_instruction": "instrução de eval"}, deep=True
+            ),
+        )
+
+    async def quem_responde(*modelos: BaseLlm) -> str:
+        cadeia = config_agent.TransientFallbackModel(
+            models=list(modelos),
+            retriable_status_codes=frozenset({429, 500, 502, 503, 504}),
+        )
+        try:
+            async for resposta in cadeia.generate_content_async(requisicao()):
+                return resposta.content.parts[0].text
+        except Exception as erro:  # noqa: BLE001 - o caso compara o tipo do erro
+            return f"erro:{type(erro).__name__}"
+        return ""
+
+    def caso_conversao() -> tuple[bool, str]:
+        Reserva = config_agent.com_esforco_proprio(ModeloFalso, AnthropicGenerateContentConfig)
+        reserva = Reserva(model="reserva", recebidas=[])
+        resposta = asyncio.run(quem_responde(ModeloFalso(model="primario", falha="503"), reserva))
+        config = reserva.recebidas[0] if reserva.recebidas else None
+        problemas = []
+        if resposta != "reserva":
+            problemas.append(f"respondeu {resposta!r}")
+        if not isinstance(config, AnthropicGenerateContentConfig):
+            problemas.append("a reserva não recebeu a configuração do próprio provedor")
+        else:
+            if config.effort != ESFORCO_RESERVAS:
+                problemas.append(f"effort {config.effort!r}")
+            if config.thinking_config is not None or config.temperature is not None:
+                problemas.append("thinking_config ou temperatura do Gemini vazou")
+            if config.system_instruction != "instrução de eval":
+                problemas.append("a instrução do agente se perdeu na conversão")
+            if config.max_output_tokens != GENERATION_CONFIG.max_output_tokens:
+                problemas.append("o limite de tokens se perdeu na conversão")
+        return not problemas, "; ".join(problemas)
+
+    def caso_resposta_controlada() -> tuple[bool, str]:
+        contexto = SimpleNamespace(invocation_id="EVAL-RESERVA")
+        resposta = config_agent.responder_falha_dos_modelos(
+            contexto, requisicao(), RuntimeError("eval")
+        )
+        texto = resposta.content.parts[0].text if resposta else ""
+        cancelado = config_agent.responder_falha_dos_modelos(
+            contexto, requisicao(), asyncio.CancelledError()
+        )
+        problemas = []
+        if "revisão humana" not in texto:
+            problemas.append("falha geral sem a mensagem de revisão humana")
+        if resposta and resposta.content.parts[0].function_call:
+            problemas.append("a resposta de falha chama ferramenta")
+        if cancelado is not None:
+            problemas.append("um cancelamento foi convertido em resposta")
+        return not problemas, "; ".join(problemas)
+
+    def esperar(resultado: str, esperado: str) -> tuple[bool, str]:
+        return resultado == esperado, f"esperado {esperado!r}, obtido {resultado!r}"
+
+    casos = [
+        ("primario_responde_sem_trocar", lambda: esperar(
+            asyncio.run(quem_responde(ModeloFalso(model="primario"), ModeloFalso(model="reserva"))),
+            "primario")),
+        ("503_passa_para_a_reserva", lambda: esperar(
+            asyncio.run(quem_responde(
+                ModeloFalso(model="primario", falha="503"), ModeloFalso(model="reserva"))),
+            "reserva")),
+        ("falha_de_conexao_passa_para_a_reserva", lambda: esperar(
+            asyncio.run(quem_responde(
+                ModeloFalso(model="primario", falha="conexao"), ModeloFalso(model="reserva"))),
+            "reserva")),
+        ("erro_400_nao_troca_de_modelo", lambda: esperar(
+            asyncio.run(quem_responde(
+                ModeloFalso(model="primario", falha="400"), ModeloFalso(model="reserva"))),
+            "erro:ClientError")),
+        ("reserva_recebe_configuracao_do_proprio_provedor", caso_conversao),
+        ("falha_geral_vira_resposta_controlada", caso_resposta_controlada),
+    ]
+
+    aprovados = 0
+    for nome, executar in casos:
+        passou, detalhe = executar()
+        aprovados += int(passou)
+        print(f"[{'APROVADO' if passou else 'REPROVADO'}] reservas / {nome}")
+        if not passou:
+            print(f"  {detalhe}")
+    return aprovados, len(casos)
+
+
 def main() -> int:
     total_aprovados = 0
     total_casos = 0
@@ -481,6 +601,7 @@ def main() -> int:
         ("Registro recalculado e minimizado", avaliar_registro),
         ("Medição de latência sem serviço externo", avaliar_latencia),
         ("Busca BM25 e correção de digitação", avaliar_busca),
+        ("Modelos de reserva com modelos falsos", avaliar_reservas),
     ):
         print(f"\n{nome}")
         aprovados, total = avaliador()

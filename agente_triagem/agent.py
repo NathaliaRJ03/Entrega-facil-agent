@@ -14,6 +14,7 @@ from .config_agent import (
     INSTRUCTION,
     MODEL,
     TOOLS,
+    responder_falha_dos_modelos,
 )
 
 
@@ -26,5 +27,6 @@ root_agent = Agent(
     generate_content_config=GENERATION_CONFIG,
     before_agent_callback=iniciar_medicao_latencia,
     after_agent_callback=finalizar_medicao_latencia,
+    on_model_error_callback=responder_falha_dos_modelos,
 )
 
