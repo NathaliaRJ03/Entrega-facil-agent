@@ -1,4 +1,0 @@
-id_incidente,servico,inicio,fim,codigo_erro,severidade,transacoes_afetadas,descricao
-INC-2026-031,PIX,2026-11-10 08:40:00,2026-11-10 10:15:00,SPI_TIMEOUT,SEV1,1432,Timeout na comunicação com o SPI; transações ficaram pendentes de liquidação.
-INC-2026-029,Repasse lojista,2026-11-10 22:00:00,,LIQ_BLOQUEIO_RISCO,SEV2,57,Lotes de repasse retidos pela regra de risco após atualização.
-INC-2026-024,Cartão de crédito,2026-11-02 13:00:00,2026-11-02 13:40:00,ADQ_5XX,SEV3,210,Instabilidade na adquirente; algumas autorizações repetidas.

@@ -1,0 +1,17 @@
+{
+  "descricao": "Avalia a instrumentação de latência sem gravar em serviços externos.",
+  "casos": [
+    {
+      "id": "emite_linha_sintetica_quando_configurado",
+      "id_invocacao": "EVAL-LAT-001",
+      "agente": "agente_eval",
+      "status": "sucesso"
+    },
+    {
+      "id": "nao_agenda_envio_sem_planilha_configurada",
+      "id_invocacao": "EVAL-LAT-002",
+      "agente": "agente_eval",
+      "status": "sem_planilha"
+    }
+  ]
+}

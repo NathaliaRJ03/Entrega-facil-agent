@@ -24,7 +24,7 @@ PASTA_SAIDA = PASTA_PROJETO / "data" / "saida"
 
 
 def normalizar_coluna(nome: str) -> str:
-    """'Valor da transação (R$)' -> 'valor_da_transacao_r'."""
+    """'Número do pedido' -> 'numero_do_pedido'."""
     nome = unicodedata.normalize("NFD", str(nome).strip().lower())
     nome = "".join(c for c in nome if unicodedata.category(c) != "Mn")
     return re.sub(r"[^a-z0-9]+", "_", nome).strip("_")
@@ -113,16 +113,9 @@ RECLAMACOES = Contrato(
         "nome_cliente": ("nome", "nome completo", "nome do cliente"),
         "data_envio": ("carimbo de data/hora", "timestamp", "data_hora", "data"),
         "produto": ("qual produto", "produto ou serviço", "servico", "produto_servico"),
-        "tipo_contestacao": ("tipo de contestação", "tipo", "motivo"),
         "relato": ("descreva oque aconteceu", "descreva o que aconteceu",
                    "descreva o problema", "descrição", "descricao", "reclamação",
                    "reclamacao", "mensagem"),
-        "valor": ("valor contestado", "valor da transação", "valor da transação (r$)",
-                  "valor (r$)"),
-        "data_transacao": ("informe quando a operação foi realizada",
-                           "data da transação", "data da operação"),
-        "id_transacao": ("id da transação", "código da transação", "codigo_transacao",
-                         "e2e", "id_e2e"),
     },
     obrigatorias=("relato", "id_pedido", "nome_cliente"),
 )
@@ -150,59 +143,4 @@ PEDIDOS = Contrato(
         "descricao_pedido": ("descrição do pedido", "descricao do pedido", "produto"),
     },
     obrigatorias=("id_pedido", "nome_cliente"),
-)
-
-# --- Rebeca (Eng. Dados): tabela Gold de liquidações -------------------------
-LIQUIDACOES = Contrato(
-    nome="gold_liquidacoes",
-    responsavel="Rebeca (Eng. de Dados)",
-    arquivo="gold_liquidacoes.csv",
-    colunas={
-        "id_transacao": ("transaction_id", "id_e2e", "e2e"),
-        "data_transacao": ("transaction_date", "dt_transacao"),
-        "produto": ("metodo_pagamento", "payment_method", "canal"),
-        "valor": ("amount", "valor_transacao"),
-        "status_liquidacao": ("status", "settlement_status"),
-        "codigo_erro": ("error_code", "cod_erro"),
-        "data_liquidacao": ("settlement_date", "dt_liquidacao"),
-        "latencia_liquidacao_seg": ("latencia_seg", "settlement_latency_sec"),
-    },
-    obrigatorias=("id_transacao", "status_liquidacao"),
-)
-
-# --- Rebeca (Eng. Dados): tabela Gold de falhas/incidentes -------------------
-FALHAS = Contrato(
-    nome="gold_falhas",
-    responsavel="Rebeca (Eng. de Dados)",
-    arquivo="gold_falhas.csv",
-    colunas={
-        "id_incidente": ("incident_id", "id_falha"),
-        "servico": ("produto", "service", "componente"),
-        "inicio": ("data_inicio", "started_at", "inicio_falha"),
-        "fim": ("data_fim", "resolved_at", "fim_falha"),
-        "codigo_erro": ("error_code", "cod_erro"),
-        "severidade": ("severity", "criticidade"),
-        "transacoes_afetadas": ("qtd_transacoes_afetadas", "affected_transactions"),
-        "descricao": ("description", "resumo"),
-    },
-    obrigatorias=("id_incidente", "servico", "inicio"),
-)
-
-# --- Rebeca (Eng. Dados): amostra do CFPB tratada (alimenta o RAG) -----------
-HISTORICO_CFPB = Contrato(
-    nome="cfpb_reclamacoes",
-    responsavel="Rebeca (Eng. de Dados)",
-    arquivo="cfpb_reclamacoes.csv",
-    colunas={
-        "id_reclamacao": ("complaint_id", "complaint id"),
-        "produto": ("product",),
-        "subproduto": ("sub_product", "sub-product"),
-        "problema": ("issue",),
-        "subproblema": ("sub_issue", "sub-issue"),
-        "relato": ("consumer_complaint_narrative", "consumer complaint narrative",
-                   "narrativa"),
-        "resposta_empresa": ("company_response_to_consumer",
-                             "company response to consumer"),
-    },
-    obrigatorias=("relato",),
 )

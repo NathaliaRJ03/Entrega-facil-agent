@@ -10,33 +10,12 @@ Dois modos:
 
 import os
 import re
-import time
 
 from .contratos import Contrato, ler_csv
-
-_CACHE: dict[str, tuple[float, list[dict[str, str]], str]] = {}
-_CACHE_SEGUNDOS = 300
-_LIMITE_LINHAS = 100_000
 
 
 def _variavel_tabela(contrato: Contrato) -> str:
     return f"DATABRICKS_TABELA_{contrato.nome.upper()}"
-
-
-def _ler_databricks(tabela: str) -> list[dict]:
-    from databricks import sql  # dependência opcional
-
-    if not re.fullmatch(r"[\w.`]+", tabela):
-        raise ValueError(f"Nome de tabela inválido: {tabela!r}")
-
-    with sql.connect(
-        server_hostname=os.environ["DATABRICKS_SERVER_HOSTNAME"],
-        http_path=os.environ["DATABRICKS_HTTP_PATH"],
-        access_token=os.environ["DATABRICKS_TOKEN"],
-    ) as conexao, conexao.cursor() as cursor:
-        cursor.execute(f"SELECT * FROM {tabela} LIMIT {_LIMITE_LINHAS}")
-        colunas = [d[0] for d in cursor.description]
-        return [dict(zip(colunas, linha)) for linha in cursor.fetchall()]
 
 
 def _nome_tabela_sql(tabela: str) -> str:
@@ -85,37 +64,6 @@ def _ler_pedido_databricks(contrato: Contrato, tabela: str, id_pedido: str) -> l
         )
         colunas = [descricao[0] for descricao in (cursor.description or [])]
         return [dict(zip(colunas, linha)) for linha in cursor.fetchall()]
-
-
-def carregar_tabela(contrato: Contrato) -> tuple[list[dict[str, str]], str]:
-    """Retorna (linhas padronizadas, descrição da origem)."""
-    aviso = ""
-    tabela = os.getenv(_variavel_tabela(contrato), "").strip()
-    if tabela and os.getenv("DATABRICKS_TOKEN"):
-        em_cache = _CACHE.get(tabela)
-        if em_cache and time.time() - em_cache[0] < _CACHE_SEGUNDOS:
-            return em_cache[1], em_cache[2]
-        try:
-            linhas = contrato.padronizar(_ler_databricks(tabela), tabela)
-            origem = f"Databricks ({tabela})"
-            _CACHE[tabela] = (time.time(), linhas, origem)
-            return linhas, origem
-        except Exception as erro:  # noqa: BLE001 - mostrar o motivo na demo
-            aviso = f" [falha ao consultar o Databricks: {erro}]"
-
-    caminho, eh_amostra = contrato.localizar_arquivo()
-    if caminho is None:
-        return [], f"tabela {contrato.nome} ainda não entregue" + aviso
-
-    chave = f"{caminho}:{caminho.stat().st_mtime}"
-    em_cache = _CACHE.get(chave)
-    if em_cache:
-        return em_cache[1], em_cache[2] + aviso
-
-    linhas = contrato.padronizar(ler_csv(caminho), caminho.name)
-    origem = ("AMOSTRA SINTÉTICA " if eh_amostra else "") + f"arquivo {caminho.name}"
-    _CACHE[chave] = (time.time(), linhas, origem)
-    return linhas, origem + aviso
 
 
 def carregar_pedido(contrato: Contrato, id_pedido: str) -> tuple[list[dict[str, str]], str]:

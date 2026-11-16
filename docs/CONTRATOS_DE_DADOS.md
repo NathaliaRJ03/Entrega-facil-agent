@@ -16,6 +16,29 @@ também aceita variações portuguesas listadas nas tabelas.
   `data/amostras/` e identifica a resposta como amostra sintética.
 - Colunas extras são ignoradas. Campos opcionais ausentes não são inferidos.
 
+## Proteção dos relatos do Forms
+
+- O formulário deve orientar a pessoa a não informar senhas, códigos de
+  autenticação, dados completos de cartão ou dados bancários. Sugestão de
+  aviso: "Não inclua senhas ou dados de pagamento no relato. Informe apenas o
+  número do pedido e o problema ocorrido."
+- O agente carrega uma reclamação por vez. Nome, e-mail e telefone não são
+  enviados ao modelo; o nome e o ID do pedido são usados apenas no backend para
+  conferir a correspondência com a Gold.
+- Antes do envio ao modelo, o relato tem limite de 2.000 caracteres e são
+  mascarados formatos reconhecíveis de CPF, CNPJ, e-mail, telefone, cartão,
+  chave PIX no formato UUID, algumas credenciais e as ocorrências exatas do nome
+  e do ID do pedido cadastrados. Relatos com frases comuns de prompt injection
+  ficam retidos para revisão humana.
+- O detector cobre padrões comuns e não identifica todo dado sensível ou toda
+  tentativa de manipulação. A proteção principal é limitar as ferramentas e
+  validar consultas, cupons e registros no backend.
+- A redação protege o conteúdo enviado pelo agente ao modelo; ela não apaga nem
+  altera a resposta original armazenada no Forms ou no Google Sheets.
+- O identificador usado pelo agente deve conter de 1 a 80 letras ASCII,
+  números, pontos, sublinhados ou hifens. Identificadores fora desse formato
+  requerem revisão manual.
+
 ## 1. Reclamações do Google Forms
 
 O Forms nativo continua sendo a entrada preferida. O agente lê a planilha de

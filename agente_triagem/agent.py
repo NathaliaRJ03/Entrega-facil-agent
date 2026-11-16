@@ -2,6 +2,11 @@
 
 from google.adk.agents import Agent
 
+from integrations.latencia_sheets import (
+    finalizar_medicao_latencia,
+    iniciar_medicao_latencia,
+)
+
 from .config_agent import (
     AGENT_DESCRIPTION,
     AGENT_NAME,
@@ -19,5 +24,7 @@ root_agent = Agent(
     instruction=INSTRUCTION,
     tools=TOOLS,
     generate_content_config=GENERATION_CONFIG,
+    before_agent_callback=iniciar_medicao_latencia,
+    after_agent_callback=finalizar_medicao_latencia,
 )
 
