@@ -123,7 +123,27 @@ No Databricks, a consulta lê os nomes das colunas e filtra pelo ID com parâmet
 SQL. Não carrega a Gold inteira para procurar o pedido em Python. Use
 `databricks-sql-connector` versão 3.0.0 ou superior para parâmetros nativos.
 
-## 3. Política de cupom
+## 3. Tipos de reclamação e atitude do agente
+
+O campo "Tipo de contestação" do Forms define a categoria, no backend
+(`tools/tipos_reclamacao.py`), por palavras-chave. O modelo não escolhe a
+categoria. **Só "Atraso na entrega" pode gerar cupom**, e somente quando a Gold
+confirma o atraso pelas datas. Tipo vazio ou desconhecido vai para revisão
+humana.
+
+| Categoria | Equipe | Atitude | Cupom |
+|---|---|---|---|
+| Atraso na entrega | Atendimento | Confirma o atraso na Gold; se confirmado, oferece o cupom da faixa; se sem data de entrega, revisão humana | Só com atraso confirmado |
+| Produto errado | Trocas e Devoluções | Mostra o produto da Gold, pede foto, pergunta troca ou reembolso | Não |
+| Cancelamento ou reembolso | Financeiro | Nada entregue: cancelamento; algo entregue: devolução e reembolso | Não |
+| Cobrança diferente | Financeiro | A Gold não tem valores; pede comprovante se não houver código da transação | Não |
+| Pedido não encontrado | Atendimento | Informa a situação se a Gold achar; senão pede ID e nome e vai para revisão humana | Não |
+| Pedido não enviado | Logística | Informa a data prevista e as remessas entregues | Não |
+| Itens faltando | Logística | Compara remessas entregues com o total; pede foto se tudo consta entregue | Não |
+
+O registro do atendimento grava `categoria` e `equipe_responsavel`.
+
+## 4. Política de cupom
 
 A política segue uma tabela progressiva por dias de atraso, definida em
 `tools/politica_cupons.py` (códigos, benefícios e validade) e explicada ao

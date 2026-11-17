@@ -6,11 +6,13 @@ from datetime import datetime, timezone
 from integrations import latencia_sheets
 from integrations.contratos import PASTA_SAIDA
 from integrations.workspace import carregar_reclamacoes
+from tools.tipos_reclamacao import classificar
 
 ARQUIVO_ATENDIMENTOS = PASTA_SAIDA / "atendimentos.csv"
 COLUNAS = (
     "id_reclamacao", "data_atendimento", "id_pedido", "tipo_contestacao",
     "status_pedido", "atraso_confirmado", "cupom_oferecido", "resultado",
+    "categoria", "equipe_responsavel",
 )
 
 
@@ -103,6 +105,10 @@ def registrar_atendimento(
     atraso_calculado, dias = _avaliar_atraso(pedido)
     atraso = "nao" if atraso_calculado == "não" else atraso_calculado
     tipo = (proxima.get("tipo_contestacao") or "").strip()[:LIMITE_TIPO]
+    categoria = classificar(tipo)
+    if categoria.chave == "outro":
+        return ("O tipo de contestação não foi reconhecido; use "
+                "encaminhar_para_revisao_humana.")
     cupom = (cupom_oferecido or "").strip()
     if cupom and (
         atraso != "sim"
@@ -120,6 +126,8 @@ def registrar_atendimento(
         "atraso_confirmado": atraso,
         "cupom_oferecido": cupom,
         "resultado": "atendido",
+        "categoria": categoria.nome,
+        "equipe_responsavel": categoria.equipe,
     }
 
     _gravar(registro, abertura=proxima.get("data_envio", ""))
@@ -154,6 +162,9 @@ def encaminhar_para_revisao_humana(id_reclamacao: str) -> str:
         "tipo_contestacao": "" if retida else
             (proxima.get("tipo_contestacao") or "").strip()[:LIMITE_TIPO],
         "resultado": "revisao_humana",
+        "categoria": "" if retida else
+            classificar(proxima.get("tipo_contestacao") or "").nome,
+        "equipe_responsavel": "Revisão humana",
     }, abertura=proxima.get("data_envio", ""))
     return f"Reclamação {reclamacao} encaminhada para revisão humana e removida da fila."
 

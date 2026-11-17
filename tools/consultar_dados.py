@@ -15,6 +15,7 @@ from integrations.protecao_dados import (
 from integrations.workspace import carregar_reclamacoes
 
 from .politica_cupons import faixa_aplicavel
+from .tipos_reclamacao import classificar
 from .salvar_atendimento import (
     carregar_reclamacoes_pendentes,
     obter_proxima_reclamacao,
@@ -24,14 +25,12 @@ from .salvar_atendimento import (
 _ID_RECLAMACAO_VALIDO = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}\Z")
 _VALOR_BR = re.compile(r"\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?")
 _VALOR_MAXIMO = 1_000_000
-_MARCADORES_ATRASO = ("atraso", "atrasad", "entrega", "nao_chegou", "nao_recebi")
 LIMITE_TIPO = 80
 
 
 def contestacao_de_atraso(tipo: str) -> bool:
-    """Só contestações de atraso (ou sem tipo, no formato antigo) aceitam cupom."""
-    normalizado = normalizar_coluna(tipo)
-    return not normalizado or any(m in normalizado for m in _MARCADORES_ATRASO)
+    """Só o tipo "atraso" do Forms aceita cupom. Vazio ou outro tipo: nunca."""
+    return classificar(tipo).permite_cupom
 
 
 def reclamacao_tem_injecao(reclamacao: dict[str, str]) -> bool:
@@ -69,9 +68,13 @@ def _formatar_reais(texto: str) -> str:
 def _dados_da_contestacao(reclamacao: dict[str, str]) -> dict[str, object]:
     """Campos estruturados do Forms, validados e sem dados de pagamento ou contato."""
     tipo = str(reclamacao.get("tipo_contestacao", "")).strip()[:LIMITE_TIPO]
+    categoria = classificar(tipo)
     dados: dict[str, object] = {
         "tipo_contestacao": tipo or "não informado",
-        "contestacao_de_atraso": "sim" if contestacao_de_atraso(tipo) else "não",
+        "categoria": categoria.nome,
+        "equipe_responsavel": categoria.equipe,
+        "pode_gerar_cupom": "sim" if categoria.permite_cupom else "não",
+        "acao_obrigatoria": categoria.acao,
     }
     inconsistencias = []
 
@@ -365,6 +368,15 @@ def _consolidar_remessas(pedidos: list[dict[str, str]]) -> dict[str, str]:
 
     escolhida = dict(max(pedidos, key=prioridade))
     escolhida["quantidade_remessas"] = str(len(pedidos))
+    escolhida["remessas_entregues"] = str(
+        sum(1 for linha in pedidos if _parse_data(linha.get("data_entrega", "")))
+    )
+    produtos = []
+    for linha in pedidos:
+        produto = (linha.get("descricao_pedido") or "").strip()
+        if produto and produto not in produtos:
+            produtos.append(produto)
+    escolhida["produtos_do_pedido"] = "; ".join(produtos)
     return escolhida
 
 
@@ -382,6 +394,7 @@ def consultar_pedido(id_reclamacao: str) -> str:
     campos = (
         "descricao_pedido", "status_pedido", "status_entrega", "data_pedido",
         "data_prevista_entrega", "data_entrega", "dias_atraso", "quantidade_remessas",
+        "remessas_entregues", "produtos_do_pedido",
     )
     atraso, dias = _avaliar_atraso(pedido)
     valores_privados = (
@@ -416,9 +429,10 @@ def oferecer_cupom_atraso(id_reclamacao: str, cliente_muito_irritado: bool = Fal
         return f"Não foi possível confirmar a reclamação e o pedido: {erro} Não ofereça cupom."
 
     reclamacao, _, _ = _reclamacao_por_id(id_reclamacao)
-    if not contestacao_de_atraso((reclamacao or {}).get("tipo_contestacao", "")):
-        return ("A contestação não é sobre atraso; não ofereça cupom. "
-                "Encaminhe para revisão humana.")
+    categoria = classificar((reclamacao or {}).get("tipo_contestacao", ""))
+    if not categoria.permite_cupom:
+        return (f"A reclamação é do tipo '{categoria.nome}', não de atraso; não ofereça "
+                f"cupom. Siga a ação do tipo: {categoria.acao}")
 
     atraso, dias = _avaliar_atraso(pedido)
     if atraso != "sim":
