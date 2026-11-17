@@ -109,7 +109,8 @@ def avaliar_atendimento() -> tuple[int, int]:
                 reclamacao["id_reclamacao"]
             )
             resultado_cupom = consultar_dados.oferecer_cupom_atraso(
-                reclamacao["id_reclamacao"]
+                reclamacao["id_reclamacao"],
+                caso.get("cliente_muito_irritado", False),
             )
 
         nome = reclamacao.get("nome_cliente", "")
@@ -362,6 +363,104 @@ def avaliar_latencia() -> tuple[int, int]:
     return aprovados, len(casos)
 
 
+def avaliar_tickets() -> tuple[int, int]:
+    """Linha de ticket para o Sheets, sem gravar em serviços externos."""
+
+    class ExecutorCaptura:
+        def __init__(self):
+            self.envios = []
+
+        def submit(self, funcao, linha):
+            self.envios.append((funcao, linha))
+            futuro = Future()
+            futuro.set_result(None)
+            return futuro
+
+    def enviar(planilha: str, **ticket) -> list:
+        executor = ExecutorCaptura()
+        with (
+            patch.object(latencia_sheets, "_EXECUTOR", executor),
+            patch.dict(os.environ, {"LATENCIA_SHEETS_ID": planilha}),
+        ):
+            latencia_sheets.agendar_ticket(**ticket)
+        return executor.envios
+
+    def caso_formato() -> list[str]:
+        envios = enviar(
+            "planilha-sintetica",
+            id_ticket="FORM-0007",
+            abertura="2026-11-12 15:05:00",  # Forms: hora local sem fuso
+            resolucao="2026-11-12T19:00:00+00:00",  # registro: UTC
+            status="atendido",
+        )
+        if len(envios) != 1:
+            return [f"esperava um envio agendado; encontrei {len(envios)}"]
+        funcao, linha = envios[0]
+        registro = dict(zip(latencia_sheets.CABECALHOS_TICKET, linha))
+        erros = []
+        if funcao.keywords.get("cabecalhos") != latencia_sheets.CABECALHOS_TICKET:
+            erros.append("a linha não vai para a aba de tickets")
+        esperado = {
+            "ID_TICKET": "FORM-0007",
+            "TIMESTAMP_ABERTURA": "2026-11-12T15:05:00-03:00",
+            "TIMESTAMP_RESOLUCAO": "2026-11-12T16:00:00-03:00",
+            "STATUS_TICKET": "atendido",
+        }
+        for coluna, valor in esperado.items():
+            if registro.get(coluna) != valor:
+                erros.append(f"{coluna}: esperado {valor!r}, obtido {registro.get(coluna)!r}")
+        return erros
+
+    def caso_sem_planilha() -> list[str]:
+        envios = enviar(
+            "", id_ticket="FORM-0008", abertura="", resolucao="", status="atendido"
+        )
+        return ["houve tentativa de envio sem planilha configurada"] if envios else []
+
+    def caso_encerramento_envia() -> list[str]:
+        executor = ExecutorCaptura()
+        with TemporaryDirectory() as pasta:
+            arquivo = Path(pasta) / "atendimentos.csv"
+            with (
+                patch.object(salvar_atendimento, "PASTA_SAIDA", Path(pasta)),
+                patch.object(salvar_atendimento, "ARQUIVO_ATENDIMENTOS", arquivo),
+                patch.object(latencia_sheets, "_EXECUTOR", executor),
+                patch.dict(os.environ, {"LATENCIA_SHEETS_ID": "planilha-sintetica"}),
+            ):
+                salvar_atendimento._gravar(
+                    {
+                        "id_reclamacao": "FORM-0009",
+                        "data_atendimento": "2026-11-13T12:00:00+00:00",
+                        "resultado": "revisao_humana",
+                    },
+                    abertura="2026-11-13 08:30:00",
+                )
+            gravou_csv = arquivo.exists()
+        erros = [] if gravou_csv else ["o encerramento não gravou o CSV local"]
+        if len(executor.envios) != 1:
+            return erros + [f"esperava um ticket enviado; encontrei {len(executor.envios)}"]
+        linha = executor.envios[0][1]
+        if linha[0] != "FORM-0009" or linha[3] != "revisao_humana":
+            erros.append(f"ticket enviado incorreto: {linha}")
+        if len(linha) != len(latencia_sheets.CABECALHOS_TICKET):
+            erros.append("a linha não corresponde aos cabeçalhos do ticket")
+        return erros
+
+    casos = [
+        ("linha_com_fuso_de_sao_paulo", caso_formato),
+        ("nao_envia_sem_planilha_configurada", caso_sem_planilha),
+        ("encerramento_grava_csv_e_envia_ticket", caso_encerramento_envia),
+    ]
+    aprovados = 0
+    for nome, executar in casos:
+        erros = executar()
+        aprovados += int(not erros)
+        print(f"[{'APROVADO' if not erros else 'REPROVADO'}] tickets / {nome}")
+        for erro in erros:
+            print(f"  {erro}")
+    return aprovados, len(casos)
+
+
 def avaliar_busca() -> tuple[int, int]:
     dados = carregar_json("casos_busca.json")
     busca = BuscaBM25(carregar_documentos())
@@ -600,6 +699,7 @@ def main() -> int:
         ("Fila, privacidade, segurança e regras de atendimento", avaliar_atendimento),
         ("Registro recalculado e minimizado", avaliar_registro),
         ("Medição de latência sem serviço externo", avaliar_latencia),
+        ("Tickets encerrados para o Sheets sem serviço externo", avaliar_tickets),
         ("Busca BM25 e correção de digitação", avaliar_busca),
         ("Modelos de reserva com modelos falsos", avaliar_reservas),
     ):

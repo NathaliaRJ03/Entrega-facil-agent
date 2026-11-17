@@ -10,8 +10,8 @@
     },
     {
       "id": "regra_de_cupom",
-      "consulta": "Qual é a regra da campanha para oferecer cupom de desconto?",
-      "fonte_esperada": "knowledge_base/atendimento_pedidos.md > Cupom por atraso",
+      "consulta": "Qual desconto oferecer para cada faixa de dias de atraso do pedido?",
+      "fonte_esperada": "knowledge_base/politica_cupons_atraso.md > Tabela de descontos por atraso de pedido",
       "posicao_esperada": 1
     },
     {
@@ -25,7 +25,9 @@
       "consulta": "atraso atrazo previsão entrega",
       "fonte_esperada": "knowledge_base/atendimento_pedidos.md > Confirmar atraso",
       "posicao_esperada": 1,
-      "correcoes_esperadas": {"atrazo": "atraso"}
+      "correcoes_esperadas": {
+        "atrazo": "atraso"
+      }
     },
     {
       "id": "busca_por_id_e_conferencia_de_nome",
@@ -70,9 +72,9 @@
       "posicao_esperada": 1
     },
     {
-      "id": "campanha_sem_configuracao",
-      "consulta": "Campanha sem código e desconto configurados: o que informar ao cliente?",
-      "fonte_esperada": "knowledge_base/atendimento_pedidos.md > Cupom por atraso",
+      "id": "cliente_nao_encontra_cupom",
+      "consulta": "script cliente não recebeu o cupom",
+      "fonte_esperada": "knowledge_base/politica_cupons_atraso.md > Script: cliente não recebeu ou não encontra o cupom",
       "posicao_esperada": 1
     },
     {
@@ -80,28 +82,65 @@
       "consulta": "Que metadados registrar depois de responder ao cliente?",
       "fonte_esperada": "knowledge_base/atendimento_pedidos.md > Registrar atendimento",
       "posicao_esperada": 1,
-      "texto_contem": ["somente se um cupom foi oferecido", "backend reconsulta", "não envie esses valores como argumentos"]
+      "texto_contem": [
+        "somente se um cupom foi oferecido",
+        "backend reconsulta",
+        "não envie esses valores como argumentos"
+      ]
     },
     {
       "id": "nao_guardar_relato_completo",
       "consulta": "O CSV operacional guarda o relato, nome ou contato do cliente?",
       "fonte_esperada": "knowledge_base/atendimento_pedidos.md > Registrar atendimento",
       "posicao_esperada": 1,
-      "texto_contem": ["não guarda o relato", "o nome", "o e-mail", "o telefone"]
+      "texto_contem": [
+        "não guarda o relato",
+        "o nome",
+        "o e-mail",
+        "o telefone"
+      ]
     },
     {
       "id": "campos_do_csv_de_atendimentos",
       "consulta": "Quais campos operacionais o CSV de atendimentos guarda?",
       "fonte_esperada": "knowledge_base/atendimento_pedidos.md > Registrar atendimento",
       "posicao_esperada": 1,
-      "texto_contem": ["ID da reclamação", "ID do pedido", "status do pedido", "confirmação de atraso", "cupom oferecido"],
-      "texto_nao_contem": ["registre o atendimento com o ID do pedido"]
+      "texto_contem": [
+        "ID da reclamação",
+        "ID do pedido",
+        "status do pedido",
+        "confirmação de atraso",
+        "cupom oferecido"
+      ],
+      "texto_nao_contem": [
+        "registre o atendimento com o ID do pedido"
+      ]
+    },
+    {
+      "id": "script_pedido_atrasado",
+      "consulta": "script pedido atrasado",
+      "fonte_esperada": "knowledge_base/politica_cupons_atraso.md > Script: pedido atrasado",
+      "posicao_esperada": 1
+    },
+    {
+      "id": "script_erro_no_pedido",
+      "consulta": "script erro no pedido qualidade",
+      "fonte_esperada": "knowledge_base/politica_cupons_atraso.md > Script: reclamação sobre qualidade ou erro no pedido",
+      "posicao_esperada": 1
     }
   ],
   "caso_privacidade": {
     "id": "consulta_com_dados_pessoais_redigida_antes_da_busca",
     "consulta": "Acompanhe o pedido PED-EVAL-PII; contato eval.busca@example.test e (11) 91234-5678.",
-    "contem": ["[ID PEDIDO REMOVIDO]", "[E-MAIL REMOVIDO]", "[TELEFONE REMOVIDO]"],
-    "nao_contem": ["PED-EVAL-PII", "eval.busca@example.test", "91234-5678"]
+    "contem": [
+      "[ID PEDIDO REMOVIDO]",
+      "[E-MAIL REMOVIDO]",
+      "[TELEFONE REMOVIDO]"
+    ],
+    "nao_contem": [
+      "PED-EVAL-PII",
+      "eval.busca@example.test",
+      "91234-5678"
+    ]
   }
 }

@@ -77,6 +77,19 @@ def _mascarar_cartao(candidato: re.Match[str]) -> str:
     return candidato.group()
 
 
+def mascarar_cpf_cartao(texto: str) -> str:
+    """Máscara mínima para campos que podem ser exibidos (nome, e-mail, pedido).
+
+    Só CPF, cartão e credenciais são tratados como sensíveis nesses campos.
+    """
+    valor = unicodedata.normalize("NFKC", str(texto or ""))
+    valor = "".join(c for c in valor if unicodedata.category(c) not in {"Cc", "Cf"})
+    valor = _CREDENCIAL.sub(lambda m: f"{m.group(1)}: [CREDENCIAL REMOVIDA]", valor)
+    valor = _TOKEN.sub("[TOKEN REMOVIDO]", valor)
+    valor = _CPF.sub("[CPF REMOVIDO]", valor)
+    return _CARTAO.sub(_mascarar_cartao, valor)
+
+
 def mascarar_dados_sensiveis(
     texto: str,
     valores_privados: tuple[tuple[str, str], ...] = (),

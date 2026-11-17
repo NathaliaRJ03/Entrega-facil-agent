@@ -22,9 +22,12 @@ também aceita variações portuguesas listadas nas tabelas.
   autenticação, dados completos de cartão ou dados bancários. Sugestão de
   aviso: "Não inclua senhas ou dados de pagamento no relato. Informe apenas o
   número do pedido e o problema ocorrido."
-- O agente carrega uma reclamação por vez. Nome, e-mail e telefone não são
-  enviados ao modelo; o nome e o ID do pedido são usados apenas no backend para
-  conferir a correspondência com a Gold.
+- O agente carrega uma reclamação por vez. No atendimento, nome, e-mail e
+  telefone não são enviados ao modelo; o nome e o ID do pedido são usados apenas
+  no backend para conferir a correspondência com a Gold.
+- A lista de reclamações (`listar_reclamacoes_forms`) exibe nome, e-mail e ID
+  do pedido em tabela. Nesses campos, só CPF, cartão e credenciais são
+  mascarados. Relato e código da transação não aparecem na lista.
 - Antes do envio ao modelo, o relato tem limite de 2.000 caracteres e são
   mascarados formatos reconhecíveis de CPF, CNPJ, e-mail, telefone, cartão,
   chave PIX no formato UUID, algumas credenciais e as ocorrências exatas do nome
@@ -52,11 +55,27 @@ respostas via `FORMS_SHEET_ID` ou `FORMS_CSV_URL`. Também aceita o arquivo
 | `nome_cliente` | sim | Nome, Nome completo, Nome do cliente |
 | `id_reclamacao` | não | ID, Protocolo; se ausente, é criado como `FORM-0001` etc. |
 | `data_envio` | não | Carimbo de data/hora (gerado pelo Forms) |
-| `produto` | não | Produto, Produto ou serviço |
+| `tipo_contestacao` | não | Tipo de contestação, Motivo |
+| `data_compra` | não | Informe quando a compra foi realizada, Data da compra |
+| `codigo_transacao` | não | Código da transação, ID da transação |
+| `valor_pedido` | não | Valor do pedido, Valor da compra |
 
 O nome é usado no backend para conferir o registro da Gold junto com o ID do
 pedido. Ele não é incluído na resposta da ferramenta ao modelo nem gravado no
-arquivo de atendimento. E-mail e outros campos de contato são ignorados.
+arquivo de atendimento. A pergunta "E-mail de contato" do Forms e outros campos
+de contato são ignorados.
+
+Como o agente usa os campos novos:
+
+- `tipo_contestacao` é enviado ao modelo e gravado em `atendimentos.csv`. Só
+  contestações de atraso ou entrega (ou sem tipo) podem receber cupom; os demais
+  tipos (cobrança duplicada, valor diferente, item faltando) vão para revisão
+  humana. A regra é aplicada no backend.
+- `data_compra` e `valor_pedido` são enviados ao modelo como "informados pelo
+  cliente", após validação. Data posterior ao envio ou valor fora do formato
+  aparecem como `inconsistencias_no_formulario`.
+- `codigo_transacao` não é enviado ao modelo: ele só recebe se o código foi
+  informado (sim/não).
 
 ## 2. Rebeca (Engenharia de Dados): histórico Gold de pedidos
 
@@ -101,10 +120,20 @@ SQL. Não carrega a Gold inteira para procurar o pedido em Python. Use
 
 ## 3. Política de cupom
 
-Configure `CUPOM_ATRASO_CODIGO` e `CUPOM_ATRASO_DESCONTO` com os valores aprovados
-pela equipe. A ferramenta só retorna o cupom configurado quando confirma um
-único pedido atrasado. Sem os dois valores, não há oferta automática: o agente
-explica que a campanha precisa ser confirmada. O projeto não emite códigos
+A política segue uma tabela progressiva por dias de atraso, definida em
+`tools/politica_cupons.py` (códigos, benefícios e validade) e explicada ao
+agente em `knowledge_base/politica_cupons_atraso.md`:
+
+| Atraso | Código | Benefício | Validade |
+|---|---|---|---|
+| 1 a 3 dias | DESCULPA5 ou FRETEZERO | 5% OFF ou frete grátis | 30 dias |
+| 4 a 7 dias | ATRASO10 | 10% OFF | 30 dias |
+| 8 a 14 dias | PRIORIDADE15 | 15% OFF + prioridade de envio | 45 dias |
+| 15 dias ou mais | ESPECIAL20 | 20% OFF (ou cancelamento com reembolso, via revisão humana) | 60 dias |
+
+A ferramenta só retorna o cupom quando confirma um único pedido atrasado, e o
+registro só aceita o código da faixa calculada. Cliente muito irritado na
+primeira faixa pode subir para ATRASO10. O projeto não emite códigos
 individuais nem verifica validade ou limite de uso; isso exige integração com o
 sistema de cupons.
 

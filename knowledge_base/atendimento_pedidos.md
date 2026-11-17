@@ -27,10 +27,9 @@ suficientes, o atraso fica indeterminado.
 ## Cupom por atraso
 
 Ofereça cupom somente quando a ferramenta confirmar `atraso_confirmado: sim`.
-Use apenas o código e o desconto retornados pela ferramenta. A campanha deve
-estar configurada em `CUPOM_ATRASO_CODIGO` e `CUPOM_ATRASO_DESCONTO`. Se a
-campanha não estiver configurada, não invente um código ou percentual; informe
-que a campanha precisa ser confirmada.
+Use apenas o código, o benefício e a validade retornados por
+oferecer_cupom_atraso, que aplica a tabela progressiva descrita em "Política de
+compensação por atraso". Não invente código ou percentual.
 
 ## Registrar atendimento
 

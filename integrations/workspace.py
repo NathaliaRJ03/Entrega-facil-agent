@@ -87,4 +87,5 @@ def _completar_ids(registros: list[dict[str, str]]) -> list[dict[str, str]]:
         if not registro["id_reclamacao"]:
             registro["id_reclamacao"] = f"FORM-{numero:04d}"
         registro["data_envio"] = _data_iso(registro["data_envio"])
+        registro["data_compra"] = _data_iso(registro["data_compra"])
     return registros
