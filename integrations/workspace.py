@@ -1,6 +1,6 @@
 """Lê as reclamações do Google Forms (via planilha de respostas no Sheets).
 
-Três modos (o primeiro configurado vence):
+Somente as respostas reais do Forms, em dois modos (nesta ordem):
 - Link CSV em FORMS_CSV_URL. Preferido (tempo real), com a planilha
   compartilhada como "qualquer pessoa com o link: Leitor":
     https://docs.google.com/spreadsheets/d/<ID>/export?format=csv&gid=<GID>
@@ -9,15 +9,14 @@ Três modos (o primeiro configurado vence):
 - Planilha (Google Sheets API): defina FORMS_SHEET_ID e
   GOOGLE_SERVICE_ACCOUNT_FILE no .env e compartilhe a planilha com o e-mail
   da service account (somente leitura).
-- Arquivo: o Victor exporta as respostas para data/entrada/reclamacoes_forms.csv.
-  Sem nenhum dos dois, usa data/amostras/reclamacoes_forms.csv.
+Não há reserva em arquivo local nem amostra sintética.
 """
 
 import os
 import re
 import urllib.request
 
-from .contratos import RECLAMACOES, ler_csv, ler_csv_texto
+from .contratos import RECLAMACOES, ler_csv_texto
 
 
 def _ler_url_csv(url: str) -> list[dict]:
@@ -55,21 +54,16 @@ def carregar_reclamacoes() -> tuple[list[dict[str, str]], str]:
             aviso = f" [falha ao ler a planilha publicada: {erro}]"
 
     sheet_id = os.getenv("FORMS_SHEET_ID", "").strip()
-    if sheet_id and not aviso:
+    if sheet_id:
         try:
             linhas = _ler_planilha(sheet_id)
             registros = RECLAMACOES.padronizar(linhas, "Google Sheets (Forms)")
             return _completar_ids(registros), "Google Sheets (respostas do Forms)"
         except Exception as erro:  # noqa: BLE001 - mostrar o motivo na demo
-            aviso = f" [falha ao ler o Google Sheets: {erro}]"
+            aviso += f" [falha ao ler o Google Sheets: {erro}]"
 
-    caminho, eh_amostra = RECLAMACOES.localizar_arquivo()
-    if caminho is None:
-        return [], "nenhuma fonte de reclamações encontrada" + aviso
-
-    registros = RECLAMACOES.padronizar(ler_csv(caminho), caminho.name)
-    origem = ("AMOSTRA SINTÉTICA " if eh_amostra else "") + f"arquivo {caminho.name}"
-    return _completar_ids(registros), origem + aviso
+    # Sem reserva: o agente nunca lê CSV local nem amostra sintética.
+    return [], "Forms indisponível (configure FORMS_CSV_URL ou FORMS_SHEET_ID)" + aviso
 
 
 def _data_iso(valor: str) -> str:

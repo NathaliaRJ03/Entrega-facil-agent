@@ -138,7 +138,7 @@
       ]
     },
     {
-      "id": "pedido_duplicado_bloqueia_cupom",
+      "id": "remessas_do_pedido_usam_a_mais_atrasada",
       "reclamacao": {
         "id_reclamacao": "EVAL-005",
         "id_pedido": "PED-EVAL-005",
@@ -149,12 +149,12 @@
         {
           "id_pedido": "PED-EVAL-005",
           "nome_cliente": "Eva Martins",
-          "dias_atraso": "3"
+          "dias_atraso": "0"
         },
         {
           "id_pedido": "PED-EVAL-005",
           "nome_cliente": "Eva Martins",
-          "dias_atraso": "3"
+          "dias_atraso": "5"
         }
       ],
       "cupom": {
@@ -162,17 +162,18 @@
         "desconto": "10%"
       },
       "consulta_contem": [
-        "Encontrei 2 registros"
+        "quantidade_remessas: 2",
+        "dias_atraso_calculados: 5"
       ],
       "consulta_nao_contem": [
         "Eva Martins",
         "PED-EVAL-005"
       ],
       "cupom_contem": [
-        "não ofereça cupom"
+        "Cupom aprovado: ATRASO10",
+        "faixa 4 a 7 dias"
       ],
       "cupom_nao_contem": [
-        "Cupom aprovado",
         "DESCULPA5"
       ]
     },

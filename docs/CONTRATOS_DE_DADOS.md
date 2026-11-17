@@ -7,13 +7,13 @@ também aceita variações portuguesas listadas nas tabelas.
 
 ## Regras gerais
 
-- CSV em UTF-8, com cabeçalho na primeira linha. Vírgula e ponto e vírgula são
-  aceitos.
+- **Fontes únicas:** as reclamações vêm só das respostas do Google Forms (via
+  Google Sheets) e os pedidos vêm só da tabela Gold no Databricks. Não há
+  reserva em arquivo local nem amostra sintética: se uma fonte falhar, o agente
+  não encontra o dado e encaminha para revisão humana.
 - A comparação dos cabeçalhos ignora caixa, acentos e espaços.
 - Datas devem usar `AAAA-MM-DD`, `AAAA-MM-DD HH:MM:SS`, `DD/MM/AAAA` ou
   `DD.MM.AAAA`.
-- Coloque os arquivos em `data/entrada/`. Enquanto não chegarem, o agente usa
-  `data/amostras/` e identifica a resposta como amostra sintética.
 - Colunas extras são ignoradas. Campos opcionais ausentes não são inferidos.
 
 ## Proteção dos relatos do Forms
@@ -45,8 +45,7 @@ também aceita variações portuguesas listadas nas tabelas.
 ## 1. Reclamações do Google Forms
 
 O Forms nativo continua sendo a entrada preferida. O agente lê a planilha de
-respostas via `FORMS_SHEET_ID` ou `FORMS_CSV_URL`. Também aceita o arquivo
-`data/entrada/reclamacoes_forms.csv`.
+respostas via `FORMS_CSV_URL` ou `FORMS_SHEET_ID`.
 
 | Campo canônico | Obrigatório | Exemplos de título no Forms |
 |---|---:|---|
@@ -79,30 +78,36 @@ Como o agente usa os campos novos:
 
 ## 2. Rebeca (Engenharia de Dados): histórico Gold de pedidos
 
-Arquivo local: `gold_pedidos.csv`. Tabela opcional no Databricks: configure
+Tabela no Databricks (única fonte de pedidos): configure
 `DATABRICKS_TABELA_GOLD_PEDIDOS` junto com `DATABRICKS_SERVER_HOSTNAME`,
-`DATABRICKS_HTTP_PATH` e `DATABRICKS_TOKEN`.
+`DATABRICKS_HTTP_PATH` e `DATABRICKS_TOKEN`. Teste com
+`python scripts/testar_databricks.py <ID_PEDIDO>`.
 
-**Entregue uma linha por pedido**, com o identificador igual ao que o cliente
-preenche no Forms. O agente interrompe a consulta de cupom se encontrar mais de
-um registro para o mesmo ID.
+A tabela pode ter **uma linha por remessa** (até 50 por pedido). O agente junta
+as remessas do mesmo ID e usa a mais atrasada; se as remessas tiverem nomes de
+cliente diferentes, a consulta é bloqueada. O ID é aceito com ou sem zeros à
+esquerda (`5000100` encontra `0005000100`).
 
 | Campo canônico | Obrigatório | Variações portuguesas aceitas |
 |---|---:|---|
 | `id_pedido` | sim | ID do pedido, número do pedido, pedido |
 | `nome_cliente` | sim | Nome, nome completo, nome do cliente |
-| `status_pedido` | não | status do pedido, status |
+| `status_pedido` | não | status do pedido, status, situacao_pedido |
 | `data_pedido` | não | data do pedido |
-| `data_prevista_entrega` | recomendado | previsão de entrega, data prevista de entrega, prazo de entrega |
-| `data_entrega` | recomendado | data da entrega, entrega realizada em |
-| `dias_atraso` | não | dias de atraso, atraso em dias |
-| `status_entrega` | não | status da entrega |
-| `descricao_pedido` | não | descrição do pedido, produto |
+| `data_prevista_entrega` | recomendado | previsão de entrega, data prevista de entrega, prazo de entrega, data_planejada_entrega |
+| `data_entrega` | recomendado | data da entrega, entrega realizada em, data_real_entrega |
+| `dias_atraso` | não | dias de atraso, atraso em dias (positivo = atrasado) |
+| `status_entrega` | não | status da entrega, atraso_status |
+| `descricao_pedido` | não | descrição do pedido, produto, descricao_produto |
+
+A coluna `atraso` da Gold atual **não** é usada: nela, atraso é negativo e
+adiantamento é positivo, o inverso de `dias_atraso`. O agente calcula pelas
+datas, que dão o mesmo número com o sinal correto.
 
 Rebeca deve entregar esses campos traduzidos e garantir que o mesmo
 `id_pedido` e `nome_cliente` estejam no Forms e na Gold. O sistema consulta pelo
-ID do pedido e compara o nome antes de retornar os dados; diferença de nome ou
-mais de uma linha para o pedido bloqueia a consulta. A comparação ignora caixa,
+ID do pedido e compara o nome antes de retornar os dados; diferença de nome
+bloqueia a consulta. A comparação ignora caixa,
 acentos e pontuação. Se os valores de status continuarem em códigos SAP, inclua
 também a descrição correspondente ou uma tabela de tradução.
 
@@ -110,9 +115,9 @@ O agente calcula atraso nesta ordem:
 
 1. Se `dias_atraso` vier preenchido, valor maior que zero confirma atraso.
 2. Caso contrário, compara `data_entrega` com `data_prevista_entrega`.
-3. Se ainda não houver data de entrega, compara a previsão com a data atual de
-   São Paulo.
-4. Sem dados suficientes, o atraso fica indeterminado e nenhum cupom é oferecido.
+3. Sem as duas datas (por exemplo, remessa ainda não entregue), o atraso fica
+   indeterminado e nenhum cupom é oferecido. O agente não estima atraso
+   comparando a previsão com a data de hoje.
 
 No Databricks, a consulta lê os nomes das colunas e filtra pelo ID com parâmetro
 SQL. Não carrega a Gold inteira para procurar o pedido em Python. Use

@@ -3,10 +3,9 @@
 import json
 import re
 from datetime import date, datetime
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from integrations.contratos import PEDIDOS, normalizar_coluna
-from integrations.databricks import carregar_pedido
+from integrations.databricks import LIMITE_LINHAS_POR_PEDIDO, carregar_pedido
 from integrations.protecao_dados import (
     contem_prompt_injection,
     mascarar_cpf_cartao,
@@ -260,7 +259,11 @@ def _parse_data(valor: str) -> date | None:
 
 
 def _avaliar_atraso(pedido: dict[str, str]) -> tuple[str, str]:
-    """Determina atraso apenas com dias explícitos ou datas comparáveis."""
+    """Determina atraso só com dados da Gold: dias explícitos ou as duas datas.
+
+    Remessa ainda sem data de entrega fica indeterminada: o agente não estima
+    atraso comparando a previsão com a data de hoje.
+    """
     informado = (pedido.get("dias_atraso") or "").strip()
     if informado:
         try:
@@ -271,25 +274,10 @@ def _avaliar_atraso(pedido: dict[str, str]) -> tuple[str, str]:
 
     prevista = _parse_data(pedido.get("data_prevista_entrega", ""))
     realizada = _parse_data(pedido.get("data_entrega", ""))
-    if prevista is None:
+    if prevista is None or realizada is None:
         return "indeterminado", ""
-    if realizada is not None:
-        dias = (realizada - prevista).days
-        return ("sim", str(dias)) if dias > 0 else ("não", "0")
-
-    status = normalizar_coluna(
-        f"{pedido.get('status_pedido', '')} {pedido.get('status_entrega', '')}"
-    )
-    if any(marcador in status for marcador in ("entregue", "delivered", "geliefert")):
-        return "indeterminado", ""
-
-    try:
-        hoje = datetime.now(ZoneInfo("America/Sao_Paulo")).date()
-    except ZoneInfoNotFoundError:  # fallback para máquinas sem base IANA local
-        hoje = datetime.now().astimezone().date()
-    if prevista < hoje:
-        return "sim", str((hoje - prevista).days)
-    return "não", "0"
+    dias = (realizada - prevista).days
+    return ("sim", str(dias)) if dias > 0 else ("não", "0")
 
 
 def _reclamacao_por_id(id_reclamacao: str) -> tuple[dict[str, str] | None, str, str]:
@@ -335,24 +323,49 @@ def _consultar_pedido_verificado(
 
     if not pedidos:
         return None, origem, "Pedido não encontrado na base de pedidos."
-    if len(pedidos) != 1:
+    if len(pedidos) > LIMITE_LINHAS_POR_PEDIDO:
         return None, origem, (
-            f"Encontrei {len(pedidos)} registros para este pedido; "
-            "não consigo confirmar qual linha corresponde ao pedido."
+            "O pedido tem registros demais na base; encaminhe para revisão humana."
         )
 
-    pedido = pedidos[0]
     campos_textuais = ("descricao_pedido", "status_pedido", "status_entrega")
-    if any(contem_prompt_injection(str(pedido.get(campo, ""))) for campo in campos_textuais):
+    if any(
+        contem_prompt_injection(str(linha.get(campo, "")))
+        for linha in pedidos
+        for campo in campos_textuais
+    ):
         return None, origem, (
             "Os dados textuais do pedido requerem revisão humana antes do atendimento."
         )
-    nome_tabela = normalizar_coluna(pedido.get("nome_cliente", ""))
-    if not nome_tabela:
+    nomes_tabela = {normalizar_coluna(linha.get("nome_cliente", "")) for linha in pedidos}
+    if "" in nomes_tabela:
         return None, origem, "A tabela não tem nome_cliente para confirmar a identidade."
-    if normalizar_coluna(nome_cliente) != nome_tabela:
+    if len(nomes_tabela) != 1:
+        return None, origem, (
+            "As remessas do pedido têm nomes de cliente diferentes; "
+            "encaminhe para revisão humana."
+        )
+    if normalizar_coluna(nome_cliente) not in nomes_tabela:
         return None, origem, "O nome do Forms não confere com o cadastro do pedido."
-    return pedido, origem, ""
+    return _consolidar_remessas(pedidos), origem, ""
+
+
+def _consolidar_remessas(pedidos: list[dict[str, str]]) -> dict[str, str]:
+    """Um pedido pode ter várias remessas (uma linha cada). Vale a mais atrasada.
+
+    Ordem: remessa com atraso confirmado e mais dias > remessa indeterminada >
+    remessa sem atraso. Assim o cupom segue a pior experiência do cliente, e um
+    dado incompleto nunca é tratado como "sem atraso".
+    """
+    def prioridade(linha: dict[str, str]) -> tuple[int, int]:
+        atraso, dias = _avaliar_atraso(linha)
+        if atraso == "sim":
+            return 2, int(dias)
+        return (1, 0) if atraso == "indeterminado" else (0, 0)
+
+    escolhida = dict(max(pedidos, key=prioridade))
+    escolhida["quantidade_remessas"] = str(len(pedidos))
+    return escolhida
 
 
 def consultar_pedido(id_reclamacao: str) -> str:
@@ -368,7 +381,7 @@ def consultar_pedido(id_reclamacao: str) -> str:
     blocos = [f"Pedido confirmado. Fonte: {origem}.", "  nome_cliente_confirmado: sim"]
     campos = (
         "descricao_pedido", "status_pedido", "status_entrega", "data_pedido",
-        "data_prevista_entrega", "data_entrega", "dias_atraso",
+        "data_prevista_entrega", "data_entrega", "dias_atraso", "quantidade_remessas",
     )
     atraso, dias = _avaliar_atraso(pedido)
     valores_privados = (

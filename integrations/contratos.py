@@ -2,12 +2,12 @@
 
 Cada contrato define as colunas canônicas que o agente usa e os nomes
 alternativos aceitos (ex.: o título da pergunta no Google Forms). Assim a
-equipe pode entregar o arquivo com o cabeçalho que for mais natural, desde
+equipe pode entregar os dados com o cabeçalho que for mais natural, desde
 que ele bata com algum apelido. Ver docs/CONTRATOS_DE_DADOS.md.
 
-Ordem de busca dos arquivos:
-1. data/entrada/<arquivo>   -> dados reais da equipe (fora do Git, LGPD)
-2. data/amostras/<arquivo>  -> amostra sintética para o agente rodar sem eles
+Fontes (sem reserva em arquivo nem amostra sintética):
+- Reclamações: respostas do Google Forms, lidas no Google Sheets.
+- Pedidos: tabela Gold no Databricks.
 """
 
 import csv
@@ -18,8 +18,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 PASTA_PROJETO = Path(__file__).resolve().parent.parent
-PASTA_ENTRADA = PASTA_PROJETO / "data" / "entrada"
-PASTA_AMOSTRAS = PASTA_PROJETO / "data" / "amostras"
 PASTA_SAIDA = PASTA_PROJETO / "data" / "saida"
 
 
@@ -34,7 +32,6 @@ def normalizar_coluna(nome: str) -> str:
 class Contrato:
     nome: str
     responsavel: str
-    arquivo: str
     colunas: dict[str, tuple[str, ...]]
     obrigatorias: tuple[str, ...] = field(default=())
 
@@ -46,16 +43,6 @@ class Contrato:
             if original is not None:
                 return original
         return None
-
-    def localizar_arquivo(self) -> tuple[Path | None, bool]:
-        """Retorna (caminho, eh_amostra). Prefere os dados reais da equipe."""
-        real = PASTA_ENTRADA / self.arquivo
-        if real.exists():
-            return real, False
-        amostra = PASTA_AMOSTRAS / self.arquivo
-        if amostra.exists():
-            return amostra, True
-        return None, False
 
     def padronizar(self, linhas: list[dict], origem: str) -> list[dict[str, str]]:
         """Renomeia as colunas para os nomes canônicos e valida as obrigatórias."""
@@ -87,11 +74,6 @@ class Contrato:
         return padronizadas
 
 
-def ler_csv(caminho: Path) -> list[dict[str, str]]:
-    """Lê CSV com vírgula ou ponto e vírgula (Excel em português usa ';')."""
-    return ler_csv_texto(caminho.read_text(encoding="utf-8-sig"))
-
-
 def ler_csv_texto(texto: str) -> list[dict[str, str]]:
     """Mesmo que ler_csv, mas a partir do conteúdo (ex.: baixado de uma URL)."""
     texto = texto.lstrip("﻿")
@@ -106,7 +88,6 @@ def ler_csv_texto(texto: str) -> list[dict[str, str]]:
 RECLAMACOES = Contrato(
     nome="reclamacoes_forms",
     responsavel="Victor (NOC)",
-    arquivo="reclamacoes_forms.csv",
     colunas={
         "id_reclamacao": ("id", "protocolo", "numero_protocolo"),
         "id_pedido": ("id do pedido", "pedido", "número do pedido", "numero do pedido"),
@@ -127,27 +108,30 @@ RECLAMACOES = Contrato(
     obrigatorias=("relato", "id_pedido", "nome_cliente"),
 )
 
-# --- Rebeca (Eng. de Dados): histórico Gold sintético de pedidos -------------
+# --- Rebeca (Eng. de Dados): tabela Gold de pedidos no Databricks -----------
 # Os cabeçalhos entregues pela engenharia de dados já devem estar traduzidos.
 PEDIDOS = Contrato(
     nome="gold_pedidos",
     responsavel="Rebeca (Eng. de Dados)",
-    arquivo="gold_pedidos.csv",
     colunas={
         "id_pedido": ("id do pedido", "número do pedido", "numero do pedido", "pedido"),
         "nome_cliente": ("nome", "nome completo", "nome do cliente"),
-        "status_pedido": ("status do pedido", "status"),
+        "status_pedido": ("status do pedido", "status", "situacao_pedido"),
         "data_pedido": ("data do pedido",),
         "data_prevista_entrega": (
             "previsão de entrega", "previsao de entrega", "data prevista de entrega",
-            "prazo de entrega",
+            "prazo de entrega", "data_planejada_entrega",
         ),
         "data_entrega": (
-            "data de entrega", "data da entrega", "entrega realizada em",
+            "data de entrega", "data da entrega", "entrega realizada em", "data_real_entrega",
         ),
+        # Não aceite a coluna "atraso" da Gold do Databricks: nela, atraso é
+        # negativo e adiantamento é positivo. Sem dias_atraso, o agente calcula
+        # pelas datas (entrega real - prevista), que tem o sinal correto.
         "dias_atraso": ("dias de atraso", "atraso em dias"),
-        "status_entrega": ("status da entrega",),
-        "descricao_pedido": ("descrição do pedido", "descricao do pedido", "produto"),
+        "status_entrega": ("status da entrega", "atraso_status"),
+        "descricao_pedido": ("descrição do pedido", "descricao do pedido", "produto",
+                             "descricao_produto"),
     },
     obrigatorias=("id_pedido", "nome_cliente"),
 )

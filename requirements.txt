@@ -6,5 +6,5 @@ tzdata
 gspread
 google-auth
 
-# Opcional: consulta pontual da Gold no Databricks (senão, use CSV)
-# databricks-sql-connector>=3.0.0
+# Consulta da Gold no Databricks (única fonte de pedidos)
+databricks-sql-connector>=3.0.0

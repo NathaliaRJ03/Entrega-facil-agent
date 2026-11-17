@@ -1,17 +1,18 @@
-"""Lê tabelas Gold da Rebeca a partir de CSV ou Databricks.
+"""Lê a tabela Gold de pedidos no Databricks (única fonte de pedidos).
 
-Dois modos:
-- Arquivo (padrão, risco zero): a Rebeca exporta a Gold para data/entrada/ com
-  o nome definido no contrato (para pedidos: gold_pedidos.csv).
-- Databricks SQL: defina DATABRICKS_SERVER_HOSTNAME, DATABRICKS_HTTP_PATH,
-  DATABRICKS_TOKEN e a variável da tabela (ex.: DATABRICKS_TABELA_GOLD_PEDIDOS=
-  workspace.gold.pedidos). A consulta de pedido filtra pelo ID no Databricks.
+Defina DATABRICKS_SERVER_HOSTNAME, DATABRICKS_HTTP_PATH, DATABRICKS_TOKEN e a
+variável da tabela (ex.: DATABRICKS_TABELA_GOLD_PEDIDOS=catalogo.schema.tabela).
+A consulta filtra pelo ID do pedido no próprio Databricks.
 """
 
 import os
 import re
 
-from .contratos import Contrato, ler_csv
+from .contratos import Contrato
+
+
+LIMITE_LINHAS_POR_PEDIDO = 50
+_TIPOS_INTEIROS = {"tinyint", "smallint", "int", "integer", "bigint", "long"}
 
 
 def _variavel_tabela(contrato: Contrato) -> str:
@@ -40,13 +41,33 @@ def _ler_pedido_databricks(contrato: Contrato, tabela: str, id_pedido: str) -> l
     ) as conexao, conexao.cursor() as cursor:
         # LIMIT 0 lê o esquema e localiza a coluna traduzida de ID do pedido.
         cursor.execute(f"SELECT * FROM {tabela_sql} LIMIT 0")
-        colunas = [descricao[0] for descricao in (cursor.description or [])]
+        descricoes = cursor.description or []
+        colunas = [descricao[0] for descricao in descricoes]
         coluna_id = contrato.resolver_coluna("id_pedido", colunas)
         if coluna_id is None:
             raise ValueError(
                 f"A tabela {tabela} não tem uma coluna reconhecida como id_pedido. "
                 f"Colunas encontradas: {colunas}"
             )
+
+        # O cliente digita "5000100"; a Gold pode guardar 5000100 (número) ou
+        # "0005000100" (texto). IDs só com dígitos são comparados como número.
+        tipo_id = str(dict((d[0], d[1]) for d in descricoes).get(coluna_id, "")).lower()
+        valor_id = id_pedido.strip()
+        identificador_sql = f"`{coluna_id.replace('`', '``')}`"
+        numerico = re.fullmatch(r"\d{1,18}", valor_id) is not None
+        if tipo_id in _TIPOS_INTEIROS:
+            if not numerico:
+                return []  # evita erro de conversão no SQL (que cairia no CSV)
+            filtro, parametros = f"{identificador_sql} = ?", [int(valor_id)]
+        elif numerico:
+            filtro = (
+                f"({identificador_sql} = ? OR "
+                f"try_cast({identificador_sql} AS BIGINT) = ?)"
+            )
+            parametros = [valor_id, int(valor_id)]
+        else:
+            filtro, parametros = f"{identificador_sql} = ?", [valor_id]
 
         colunas_necessarias = []
         for canonica in contrato.colunas:
@@ -56,35 +77,30 @@ def _ler_pedido_databricks(contrato: Contrato, tabela: str, id_pedido: str) -> l
         selecao_sql = ", ".join(
             f"`{coluna.replace('`', '``')}`" for coluna in colunas_necessarias
         )
-        identificador_sql = f"`{coluna_id.replace('`', '``')}`"
+        # Uma linha por remessa: traz todas (até o limite) para o agente
+        # consolidar o pedido. Acima do limite, a consulta é bloqueada.
         cursor.execute(
             f"SELECT {selecao_sql} FROM {tabela_sql} "
-            f"WHERE {identificador_sql} = ? LIMIT 10",
-            parameters=[id_pedido],
+            f"WHERE {filtro} LIMIT {LIMITE_LINHAS_POR_PEDIDO + 1}",
+            parameters=parametros,
         )
         colunas = [descricao[0] for descricao in (cursor.description or [])]
         return [dict(zip(colunas, linha)) for linha in cursor.fetchall()]
 
 
 def carregar_pedido(contrato: Contrato, id_pedido: str) -> tuple[list[dict[str, str]], str]:
-    """Busca um pedido pelo ID no Databricks ou no CSV local/amostra."""
-    aviso = ""
+    """Busca um pedido pelo ID somente na tabela Gold do Databricks.
+
+    Não há fonte reserva: sem Databricks configurado ou com falha na consulta,
+    retorna lista vazia. O agente nunca usa CSV local nem amostra sintética.
+    """
     tabela = os.getenv(_variavel_tabela(contrato), "").strip()
-    if tabela and os.getenv("DATABRICKS_TOKEN"):
-        try:
-            linhas = contrato.padronizar(
-                _ler_pedido_databricks(contrato, tabela, id_pedido), tabela
-            )
-            return linhas, f"Databricks ({tabela})"
-        except Exception as erro:  # noqa: BLE001 - permite fallback CSV na demo
-            aviso = f" [falha ao consultar Databricks: {erro}]"
-
-    caminho, eh_amostra = contrato.localizar_arquivo()
-    if caminho is None:
-        return [], f"tabela {contrato.nome} ainda não entregue" + aviso
-
-    linhas = contrato.padronizar(ler_csv(caminho), caminho.name)
-    alvo = (id_pedido or "").strip().casefold()
-    encontradas = [linha for linha in linhas if linha["id_pedido"].casefold() == alvo]
-    origem = ("AMOSTRA SINTÉTICA " if eh_amostra else "") + f"arquivo {caminho.name}"
-    return encontradas, origem + aviso
+    if not (tabela and os.getenv("DATABRICKS_TOKEN")):
+        return [], "Databricks não configurado (Gold indisponível)"
+    try:
+        linhas = contrato.padronizar(
+            _ler_pedido_databricks(contrato, tabela, id_pedido), tabela
+        )
+    except Exception as erro:  # noqa: BLE001 - sem reserva: falha = sem dados
+        return [], f"Databricks ({tabela}) [falha ao consultar: {erro}]"
+    return linhas, f"Databricks ({tabela})"

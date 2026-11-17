@@ -20,9 +20,11 @@ o status real do pedido.
 
 O atraso é confirmado primeiro pelo campo `dias_atraso`, quando preenchido. Um
 valor maior que zero indica atraso. Caso esse campo não esteja disponível, a
-consulta compara a data de entrega com a data prevista. Se ainda não houver
-data de entrega, compara a previsão com a data atual de São Paulo. Sem dados
-suficientes, o atraso fica indeterminado.
+consulta compara a data de entrega com a previsão de entrega, ambas da tabela
+Gold. Se ainda não houver data de entrega, o atraso fica indeterminado: não
+compare a previsão com a data atual para estimar dias de atraso e não ofereça
+cupom. Quando o pedido tem várias
+remessas, vale a mais atrasada. Use somente dados do Forms e da tabela Gold.
 
 ## Cupom por atraso
 

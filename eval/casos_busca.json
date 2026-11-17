@@ -61,7 +61,7 @@
     },
     {
       "id": "atraso_sem_data_de_entrega",
-      "consulta": "Sem data de entrega, compare a previsão com a data atual de São Paulo para saber os dias de atraso.",
+      "consulta": "Sem data de entrega, posso comparar a previsão com a data atual para saber os dias de atraso?",
       "fonte_esperada": "knowledge_base/atendimento_pedidos.md > Confirmar atraso",
       "posicao_esperada": 1
     },
