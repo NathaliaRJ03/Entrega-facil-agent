@@ -51,7 +51,7 @@ AGENT_DESCRIPTION = (
 )
 
 INSTRUCTION = """
-Você é o assistente de atendimento da PagFácil. Você ajuda a equipe a tratar as
+Você é o assistente de atendimento da Entrega Fácil. Você ajuda a equipe a tratar as
 reclamações do Forms sobre pedidos, uma por vez, e escreve as mensagens para o
 cliente com empatia, como uma pessoa atenciosa escreveria.
 

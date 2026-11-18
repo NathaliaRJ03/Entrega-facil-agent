@@ -96,6 +96,7 @@ RECLAMACOES = Contrato(
         "tipo_contestacao": ("tipo de contestação", "tipo de contestacao",
                              "tipo de reclamação", "motivo"),
         "relato": ("descreva oque aconteceu", "descreva o que aconteceu",
+                   "descreva o que ocorreu", "descreva oque ocorreu",
                    "descreva o problema", "descrição", "descricao", "reclamação",
                    "reclamacao", "mensagem"),
         "data_compra": ("informe quando a compra foi realizada", "data da compra",

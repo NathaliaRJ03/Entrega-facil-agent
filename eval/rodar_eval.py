@@ -201,7 +201,7 @@ def avaliar_registro() -> tuple[int, int]:
         def carregar_pedido(_contrato, _id, c=caso):
             return c["pedidos"], "Gold sintética de avaliação"
 
-        with TemporaryDirectory(prefix="pagfacil-eval-") as pasta_temporaria:
+        with TemporaryDirectory(prefix="entregafacil-eval-") as pasta_temporaria:
             arquivo = Path(pasta_temporaria) / "atendimentos.csv"
             with (
                 patch.object(salvar_atendimento, "ARQUIVO_ATENDIMENTOS", arquivo),
