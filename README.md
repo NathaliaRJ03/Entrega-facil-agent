@@ -70,7 +70,7 @@ sequenceDiagram
             A-->>C: solução do tipo de contestação (e cupom, se atraso confirmado)
             A->>F: registra o atendimento e apaga a resposta
         else diverge ou inconclusivo
-            A-->>C: "não foi possível confirmar; um analista vai retornar"
+            A-->>C: "não foi possível confirmar, um analista vai retornar"
             A->>A: encaminha para revisão humana
         end
     end
@@ -187,8 +187,8 @@ adk web (desenvolvimento) ─────────────┘        │
 ### Instalação
 
 ```bash
-git clone <url-do-repositorio>
-cd PAGFACIL
+git clone https://github.com/NathaliaRJ03/entrega-facil-agent.git
+cd entrega-facil-agent
 
 python -m venv .venv
 # Windows: .venv\Scripts\activate    |    Linux/macOS: source .venv/bin/activate
