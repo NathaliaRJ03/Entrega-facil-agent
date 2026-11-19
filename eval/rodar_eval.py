@@ -25,6 +25,7 @@ from agente_triagem.rag_lexical import carregar_documentos  # noqa: E402
 from integrations import latencia_sheets  # noqa: E402
 from retriever.bm25 import BuscaBM25  # noqa: E402
 from tools import consultar_dados, salvar_atendimento  # noqa: E402
+from tools.verificacao import nomes_equivalentes  # noqa: E402
 
 
 PASTA_EVAL = Path(__file__).resolve().parent
@@ -53,6 +54,7 @@ def avaliar_atendimento() -> tuple[int, int]:
     for caso in casos:
         reclamacao = caso["reclamacao"]
         chamadas_pedido = 0
+        consultar_dados._CACHE_PEDIDOS.clear()
 
         def obter_proxima(r=reclamacao):
             return r, "Forms sintético de avaliação", ""
@@ -64,7 +66,7 @@ def avaliar_atendimento() -> tuple[int, int]:
                 "nome_cliente": "Segredo Oculto",
                 "relato": "Conteúdo da próxima reclamação não deve ser exibido.",
             }
-            return [r, outra], "Forms sintético de avaliação", ""
+            return [outra, r], "Forms sintético de avaliação", ""
 
         def carregar_pedido(_contrato, _id, c=caso):
             nonlocal chamadas_pedido
@@ -194,6 +196,7 @@ def avaliar_registro() -> tuple[int, int]:
     for caso in casos:
         reclamacao = caso["reclamacao"]
         id_registrar = caso.get("id_registrar", reclamacao["id_reclamacao"])
+        consultar_dados._CACHE_PEDIDOS.clear()
 
         def obter_proxima(r=reclamacao):
             return r, "Forms sintético de avaliação", ""
@@ -205,6 +208,7 @@ def avaliar_registro() -> tuple[int, int]:
             arquivo = Path(pasta_temporaria) / "atendimentos.csv"
             with (
                 patch.object(salvar_atendimento, "ARQUIVO_ATENDIMENTOS", arquivo),
+                patch.object(salvar_atendimento, "_apagar_resposta"),
                 patch.object(
                     salvar_atendimento,
                     "obter_proxima_reclamacao",
@@ -690,6 +694,110 @@ def avaliar_reservas() -> tuple[int, int]:
     return aprovados, len(casos)
 
 
+def avaliar_conferencia() -> tuple[int, int]:
+    """Conferência Forms x Gold: tipo errado, relato de outro assunto, sinônimos."""
+    dados = carregar_json("casos_atendimento.json")
+    aprovados = 0
+    total = 0
+
+    for caso in dados.get("casos_conferencia", []):
+        total += 1
+        reclamacao = caso["reclamacao"]
+        consultar_dados._CACHE_PEDIDOS.clear()
+        with (
+            patch.object(
+                consultar_dados,
+                "obter_proxima_reclamacao",
+                side_effect=lambda r=reclamacao: (r, "Forms sintético", ""),
+            ),
+            patch.object(
+                consultar_dados,
+                "carregar_pedido",
+                side_effect=lambda _c, _i, c=caso: (c["pedidos"], "Gold sintética"),
+            ),
+        ):
+            saida = consultar_dados.consultar_pedido(reclamacao["id_reclamacao"])
+
+        esperado = caso["esperado"]
+        erros = []
+        if esperado == "diverge":
+            erros += faltantes(saida, ["não bateu", "encaminhar_para_revisao_humana"])
+            erros += [f"vazou dado do cliente: {t}" for t in inesperados(saida, [reclamacao["nome_cliente"], reclamacao["id_pedido"], "Pedido confirmado"])]
+        else:
+            erros += faltantes(saida, [f"conferencia_forms_x_gold: {esperado}"])
+            if esperado == "inconclusivo":
+                erros += faltantes(saida, ["encaminhar_para_revisao_humana"])
+        passou = not erros
+        aprovados += int(passou)
+        print(f"[{'APROVADO' if passou else 'REPROVADO'}] conferência / {caso['id']} (esperado: {esperado})")
+        for erro in erros:
+            print(f"  {erro}")
+
+    for forms, gold, esperado in dados.get("casos_nomes", []):
+        total += 1
+        obtido = nomes_equivalentes(forms, gold)
+        passou = obtido == esperado
+        aprovados += int(passou)
+        print(f"[{'APROVADO' if passou else 'REPROVADO'}] nome / {forms!r} x {gold!r} (esperado: {esperado})")
+    return aprovados, total
+
+
+def avaliar_link_formulario() -> tuple[int, int]:
+    """O link do Forms só sai se o nome e o ID do pedido baterem com a Gold."""
+    from tools import formulario
+
+    gold = [{"id_pedido": "PED-LINK-1", "nome_cliente": "Fábio Henrique Costa"}]
+    casos = [
+        ("nome e ID corretos", "Fabio Costa", "PED-LINK-1", True),
+        ("ID existente, nome de outra pessoa", "Pedro Alves", "PED-LINK-1", False),
+        ("ID inexistente", "Fabio Costa", "PED-NAO-EXISTE", False),
+        ("sem nome", "", "PED-LINK-1", False),
+        ("sem ID", "Fabio Costa", "", False),
+        ("ID com caracteres inválidos", "Fabio Costa", "PED-LINK-1; DROP", False),
+    ]
+    aprovados = 0
+    for descricao, nome, pedido, deve_enviar in casos:
+        consultar_dados._CACHE_PEDIDOS.clear()
+        contexto = SimpleNamespace(state={})
+        with (
+            patch.dict(os.environ, {"FORMS_URL": "https://docs.google.com/forms/d/e/TESTE/viewform"}),
+            patch.object(
+                consultar_dados,
+                "carregar_pedido",
+                side_effect=lambda _c, i: (gold if i == "PED-LINK-1" else [], "Gold sintética"),
+            ),
+            patch.object(formulario, "carregar_reclamacoes", return_value=([], "Forms sintético")),
+        ):
+            saida = formulario.enviar_link_formulario(contexto, nome, pedido)
+        enviou = "https://docs.google.com/forms" in saida
+        erros = []
+        if enviou != deve_enviar:
+            erros.append(f"esperava {'enviar' if deve_enviar else 'bloquear'} o link")
+        if not deve_enviar and nome and pedido:
+            erros += [f"revelou dado: {t}" for t in inesperados(saida, ["Fábio", "Henrique", "PED-LINK-1"])]
+        passou = not erros
+        aprovados += int(passou)
+        print(f"[{'APROVADO' if passou else 'REPROVADO'}] link do formulário / {descricao}")
+        for erro in erros:
+            print(f"  {erro}")
+
+    # Depois de 3 tentativas erradas, nem os dados certos liberam o link.
+    consultar_dados._CACHE_PEDIDOS.clear()
+    contexto = SimpleNamespace(state={})
+    with (
+        patch.dict(os.environ, {"FORMS_URL": "https://docs.google.com/forms/d/e/TESTE/viewform"}),
+        patch.object(consultar_dados, "carregar_pedido", side_effect=lambda _c, i: (gold, "Gold sintética")),
+        patch.object(formulario, "carregar_reclamacoes", return_value=([], "Forms sintético")),
+    ):
+        for _ in range(3):
+            formulario.enviar_link_formulario(contexto, "Pedro Alves", "PED-LINK-1")
+        saida = formulario.enviar_link_formulario(contexto, "Fabio Costa", "PED-LINK-1")
+    passou = "https://docs.google.com/forms" not in saida and "atendente" in saida
+    aprovados += int(passou)
+    print(f"[{'APROVADO' if passou else 'REPROVADO'}] link do formulário / limite de 3 tentativas")
+    return aprovados, len(casos) + 1
+
+
 def main() -> int:
     total_aprovados = 0
     total_casos = 0
@@ -698,6 +806,8 @@ def main() -> int:
     for nome, avaliador in (
         ("Fila, privacidade, segurança e regras de atendimento", avaliar_atendimento),
         ("Registro recalculado e minimizado", avaliar_registro),
+        ("Conferência do Forms com a Gold (campo a campo)", avaliar_conferencia),
+        ("Link do formulário só com nome e ID confirmados", avaliar_link_formulario),
         ("Medição de latência sem serviço externo", avaliar_latencia),
         ("Tickets encerrados para o Sheets sem serviço externo", avaliar_tickets),
         ("Busca BM25 e correção de digitação", avaliar_busca),

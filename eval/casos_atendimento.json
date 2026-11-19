@@ -60,15 +60,16 @@
         "desconto": "10%"
       },
       "consulta_contem": [
-        "Pedido confirmado",
-        "atraso_confirmado: não"
+        "não bateu",
+        "não dê solução"
       ],
       "consulta_nao_contem": [
         "Bruno Reis",
-        "PED-EVAL-002"
+        "PED-EVAL-002",
+        "Pedido confirmado"
       ],
       "cupom_contem": [
-        "não foi confirmado",
+        "não bateu",
         "não ofereça cupom"
       ],
       "cupom_nao_contem": [
@@ -1056,6 +1057,478 @@
         "EVAL-R-006"
       ],
       "cupom_nao_contem": []
+    },
+    {
+      "id": "registro_bloqueado_quando_conferencia_diverge",
+      "reclamacao": {
+        "id_reclamacao": "EVAL-R-010",
+        "id_pedido": "PED-EVAL-R-010",
+        "nome_cliente": "Lia Teste",
+        "relato": "Faltou um item na caixa",
+        "tipo_contestacao": "Itens faltando"
+      },
+      "pedidos": [
+        {
+          "id_pedido": "PED-EVAL-R-010",
+          "nome_cliente": "Lia Teste",
+          "status_pedido": "Em trânsito"
+        }
+      ],
+      "cupom": {
+        "codigo": "EVAL10",
+        "desconto": "10%"
+      },
+      "resultado_contem": [
+        "não registrado",
+        "não bateu"
+      ],
+      "arquivo_nao_contem": [
+        "EVAL-R-010"
+      ]
+    },
+    {
+      "id": "registro_bloqueado_quando_conferencia_e_inconclusiva",
+      "reclamacao": {
+        "id_reclamacao": "EVAL-R-011",
+        "id_pedido": "PED-EVAL-R-011",
+        "nome_cliente": "Lia Teste",
+        "relato": "O pedido atrasou",
+        "tipo_contestacao": "Atraso na entrega"
+      },
+      "pedidos": [
+        {
+          "id_pedido": "PED-EVAL-R-011",
+          "nome_cliente": "Lia Teste",
+          "status_pedido": "Em trânsito"
+        }
+      ],
+      "cupom": {
+        "codigo": "EVAL10",
+        "desconto": "10%"
+      },
+      "resultado_contem": [
+        "não foi confirmada"
+      ],
+      "arquivo_nao_contem": [
+        "EVAL-R-011"
+      ]
     }
+  ],
+  "casos_conferencia": [
+    {
+      "id": "sinonimo_demorou_confere",
+      "reclamacao": {
+        "id_reclamacao": "CONF-SINONIMO_D",
+        "id_pedido": "PED-CONF-1",
+        "nome_cliente": "Fabio Costa",
+        "relato": "Minha encomenda demorou demais para chegar",
+        "tipo_contestacao": "Atraso na entrega"
+      },
+      "pedidos": [
+        {
+          "id_pedido": "PED-CONF-1",
+          "nome_cliente": "Fabio Costa",
+          "dias_atraso": "5"
+        }
+      ],
+      "esperado": "confere"
+    },
+    {
+      "id": "erro_de_digitacao_no_relato_confere",
+      "reclamacao": {
+        "id_reclamacao": "CONF-ERRO_DE_DI",
+        "id_pedido": "PED-CONF-1",
+        "nome_cliente": "Fabio Costa",
+        "relato": "meu pedido atrazou muito",
+        "tipo_contestacao": "Atraso na entrega"
+      },
+      "pedidos": [
+        {
+          "id_pedido": "PED-CONF-1",
+          "nome_cliente": "Fabio Costa",
+          "dias_atraso": "5"
+        }
+      ],
+      "esperado": "confere"
+    },
+    {
+      "id": "tipo_errado_itens_faltando_em_transito",
+      "reclamacao": {
+        "id_reclamacao": "CONF-TIPO_ERRAD",
+        "id_pedido": "PED-CONF-1",
+        "nome_cliente": "Fabio Costa",
+        "relato": "Faltou um item na caixa",
+        "tipo_contestacao": "Itens faltando"
+      },
+      "pedidos": [
+        {
+          "id_pedido": "PED-CONF-1",
+          "nome_cliente": "Fabio Costa",
+          "status_pedido": "Em trânsito",
+          "data_pedido": "2026-11-01"
+        }
+      ],
+      "esperado": "diverge"
+    },
+    {
+      "id": "relato_de_outro_assunto",
+      "reclamacao": {
+        "id_reclamacao": "CONF-RELATO_DE_",
+        "id_pedido": "PED-CONF-1",
+        "nome_cliente": "Fabio Costa",
+        "relato": "Quero saber o horário de funcionamento da loja",
+        "tipo_contestacao": "Atraso na entrega"
+      },
+      "pedidos": [
+        {
+          "id_pedido": "PED-CONF-1",
+          "nome_cliente": "Fabio Costa",
+          "dias_atraso": "5"
+        }
+      ],
+      "esperado": "diverge"
+    },
+    {
+      "id": "nao_enviado_mas_gold_entregue",
+      "reclamacao": {
+        "id_reclamacao": "CONF-NAO_ENVIAD",
+        "id_pedido": "PED-CONF-1",
+        "nome_cliente": "Fabio Costa",
+        "relato": "Meu pedido nunca foi enviado",
+        "tipo_contestacao": "Pedido não enviado"
+      },
+      "pedidos": [
+        {
+          "id_pedido": "PED-CONF-1",
+          "nome_cliente": "Fabio Costa",
+          "status_pedido": "Entregue",
+          "data_pedido": "2026-11-01",
+          "data_entrega": "2026-11-05"
+        }
+      ],
+      "esperado": "diverge"
+    },
+    {
+      "id": "atraso_mas_gold_no_prazo",
+      "reclamacao": {
+        "id_reclamacao": "CONF-ATRASO_MAS",
+        "id_pedido": "PED-CONF-1",
+        "nome_cliente": "Fabio Costa",
+        "relato": "Meu pedido atrasou bastante",
+        "tipo_contestacao": "Atraso na entrega"
+      },
+      "pedidos": [
+        {
+          "id_pedido": "PED-CONF-1",
+          "nome_cliente": "Fabio Costa",
+          "status_pedido": "Entregue",
+          "data_pedido": "2026-11-01",
+          "data_entrega": "2026-11-05",
+          "dias_atraso": "0"
+        }
+      ],
+      "esperado": "diverge"
+    },
+    {
+      "id": "data_da_compra_diferente",
+      "reclamacao": {
+        "id_reclamacao": "CONF-DATA_DA_CO",
+        "id_pedido": "PED-CONF-1",
+        "nome_cliente": "Fabio Costa",
+        "relato": "O pedido atrasou",
+        "tipo_contestacao": "Atraso na entrega",
+        "data_compra": "2026-10-01"
+      },
+      "pedidos": [
+        {
+          "id_pedido": "PED-CONF-1",
+          "nome_cliente": "Fabio Costa",
+          "dias_atraso": "5",
+          "data_pedido": "2026-11-01"
+        }
+      ],
+      "esperado": "diverge"
+    },
+    {
+      "id": "data_da_compra_igual_confere",
+      "reclamacao": {
+        "id_reclamacao": "CONF-DATA_DA_CO",
+        "id_pedido": "PED-CONF-1",
+        "nome_cliente": "Fabio Costa",
+        "relato": "O pedido atrasou",
+        "tipo_contestacao": "Atraso na entrega",
+        "data_compra": "2026-11-01"
+      },
+      "pedidos": [
+        {
+          "id_pedido": "PED-CONF-1",
+          "nome_cliente": "Fabio Costa",
+          "dias_atraso": "5",
+          "data_pedido": "2026-11-01"
+        }
+      ],
+      "esperado": "confere"
+    },
+    {
+      "id": "valor_diferente_do_gold",
+      "reclamacao": {
+        "id_reclamacao": "CONF-VALOR_DIFE",
+        "id_pedido": "PED-CONF-1",
+        "nome_cliente": "Fabio Costa",
+        "relato": "O pedido atrasou",
+        "tipo_contestacao": "Atraso na entrega",
+        "valor_pedido": "500"
+      },
+      "pedidos": [
+        {
+          "id_pedido": "PED-CONF-1",
+          "nome_cliente": "Fabio Costa",
+          "dias_atraso": "5",
+          "valor_pedido": "199,90"
+        }
+      ],
+      "esperado": "diverge"
+    },
+    {
+      "id": "valor_igual_ao_gold_confere",
+      "reclamacao": {
+        "id_reclamacao": "CONF-VALOR_IGUA",
+        "id_pedido": "PED-CONF-1",
+        "nome_cliente": "Fabio Costa",
+        "relato": "O pedido atrasou",
+        "tipo_contestacao": "Atraso na entrega",
+        "valor_pedido": "199.90"
+      },
+      "pedidos": [
+        {
+          "id_pedido": "PED-CONF-1",
+          "nome_cliente": "Fabio Costa",
+          "dias_atraso": "5",
+          "valor_pedido": "199,90"
+        }
+      ],
+      "esperado": "confere"
+    },
+    {
+      "id": "reembolso_com_sinonimos_confere",
+      "reclamacao": {
+        "id_reclamacao": "CONF-REEMBOLSO_",
+        "id_pedido": "PED-CONF-1",
+        "nome_cliente": "Fabio Costa",
+        "relato": "Desisti da compra e quero meu dinheiro de volta",
+        "tipo_contestacao": "Cancelamento ou reembolso"
+      },
+      "pedidos": [
+        {
+          "id_pedido": "PED-CONF-1",
+          "nome_cliente": "Fabio Costa",
+          "status_pedido": "Entregue",
+          "data_pedido": "2026-11-01",
+          "data_entrega": "2026-11-05"
+        }
+      ],
+      "esperado": "confere"
+    },
+    {
+      "id": "itens_faltando_entregue_confere",
+      "reclamacao": {
+        "id_reclamacao": "CONF-ITENS_FALT",
+        "id_pedido": "PED-CONF-1",
+        "nome_cliente": "Fabio Costa",
+        "relato": "Veio sem o carregador",
+        "tipo_contestacao": "Itens faltando"
+      },
+      "pedidos": [
+        {
+          "id_pedido": "PED-CONF-1",
+          "nome_cliente": "Fabio Costa",
+          "status_pedido": "Entregue",
+          "data_pedido": "2026-11-01",
+          "data_entrega": "2026-11-05"
+        }
+      ],
+      "esperado": "confere"
+    },
+    {
+      "id": "nome_do_meio_confere",
+      "reclamacao": {
+        "id_reclamacao": "CONF-NOME_DO_ME",
+        "id_pedido": "PED-CONF-1",
+        "nome_cliente": "Fabio Costa",
+        "relato": "O pedido atrasou",
+        "tipo_contestacao": "Atraso na entrega"
+      },
+      "pedidos": [
+        {
+          "id_pedido": "PED-CONF-1",
+          "nome_cliente": "Fábio Henrique Costa",
+          "dias_atraso": "5"
+        }
+      ],
+      "esperado": "confere"
+    },
+    {
+      "id": "relato_vazio_e_inconclusivo",
+      "reclamacao": {
+        "id_reclamacao": "CONF-RELATO_VAZ",
+        "id_pedido": "PED-CONF-1",
+        "nome_cliente": "Fabio Costa",
+        "relato": "",
+        "tipo_contestacao": "Atraso na entrega"
+      },
+      "pedidos": [
+        {
+          "id_pedido": "PED-CONF-1",
+          "nome_cliente": "Fabio Costa",
+          "dias_atraso": "5"
+        }
+      ],
+      "esperado": "inconclusivo"
+    },
+    {
+      "id": "gold_item_faltando_com_quantidade_menor",
+      "reclamacao": {
+        "id_reclamacao": "CONF-GOLD_ITEM_",
+        "id_pedido": "PED-GOLD-1",
+        "nome_cliente": "Lucas Santos",
+        "relato": "Chegou incompleto, faltou um item",
+        "tipo_contestacao": "Item faltando"
+      },
+      "pedidos": [
+        {
+          "id_pedido": "PED-GOLD-1",
+          "nome_cliente": "Lucas Santos",
+          "data_pedido": "2026-06-01",
+          "status_pedido": "Parcialmente processado",
+          "status_entrega": "Em aberto",
+          "qtd_itens": "2.000",
+          "qtd_enviada": "1.000",
+          "motivo_reclamacao": "Item faltando"
+        }
+      ],
+      "esperado": "confere"
+    },
+    {
+      "id": "gold_motivo_cancelamento_mas_cliente_diz_atraso",
+      "reclamacao": {
+        "id_reclamacao": "CONF-GOLD_MOTIV",
+        "id_pedido": "PED-GOLD-1",
+        "nome_cliente": "Lucas Santos",
+        "relato": "Meu pedido demorou muito",
+        "tipo_contestacao": "Atraso na entrega"
+      },
+      "pedidos": [
+        {
+          "id_pedido": "PED-GOLD-1",
+          "nome_cliente": "Lucas Santos",
+          "data_pedido": "2026-06-01",
+          "status_pedido": "Concluído",
+          "status_entrega": "Atrasado",
+          "data_prevista_entrega": "2026-06-05",
+          "data_entrega": "2026-06-06",
+          "motivo_reclamacao": "Cancelamento/Recusado"
+        }
+      ],
+      "esperado": "diverge"
+    },
+    {
+      "id": "gold_concluido_em_aberto_nao_e_entregue",
+      "reclamacao": {
+        "id_reclamacao": "CONF-GOLD_CONCL",
+        "id_pedido": "PED-GOLD-1",
+        "nome_cliente": "Lucas Santos",
+        "relato": "Recebi um produto diferente do pedido",
+        "tipo_contestacao": "Produto errado"
+      },
+      "pedidos": [
+        {
+          "id_pedido": "PED-GOLD-1",
+          "nome_cliente": "Lucas Santos",
+          "data_pedido": "2026-06-01",
+          "status_pedido": "Concluído",
+          "status_entrega": "Em aberto",
+          "motivo_reclamacao": "Sem reclamação/Não informado"
+        }
+      ],
+      "esperado": "diverge"
+    },
+    {
+      "id": "gold_pedido_nao_enviado_confere",
+      "reclamacao": {
+        "id_reclamacao": "CONF-GOLD_PEDID",
+        "id_pedido": "PED-GOLD-1",
+        "nome_cliente": "Lucas Santos",
+        "relato": "Meu pedido ainda não foi enviado",
+        "tipo_contestacao": "Pedido não enviado"
+      },
+      "pedidos": [
+        {
+          "id_pedido": "PED-GOLD-1",
+          "nome_cliente": "Lucas Santos",
+          "data_pedido": "2026-06-01",
+          "status_pedido": "Não processado",
+          "status_entrega": "Em aberto",
+          "motivo_reclamacao": "Pedido não enviado"
+        }
+      ],
+      "esperado": "confere"
+    },
+    {
+      "id": "gold_todos_itens_enviados_item_faltando_diverge",
+      "reclamacao": {
+        "id_reclamacao": "CONF-GOLD_TODOS",
+        "id_pedido": "PED-GOLD-1",
+        "nome_cliente": "Lucas Santos",
+        "relato": "Faltou um item na caixa",
+        "tipo_contestacao": "Item faltando"
+      },
+      "pedidos": [
+        {
+          "id_pedido": "PED-GOLD-1",
+          "nome_cliente": "Lucas Santos",
+          "data_pedido": "2026-06-01",
+          "status_pedido": "Concluído",
+          "status_entrega": "Sem atraso",
+          "data_prevista_entrega": "2026-06-07",
+          "data_entrega": "2026-06-07",
+          "qtd_itens": "1.000",
+          "qtd_enviada": "1.000",
+          "motivo_reclamacao": "Sem reclamação/Não informado"
+        }
+      ],
+      "esperado": "diverge"
+    }
+  ],
+  "casos_nomes": [
+    [
+      "Maria Silva",
+      "Maria de Souza Silva",
+      true
+    ],
+    [
+      "maria  SILVA",
+      "Mária Silva",
+      true
+    ],
+    [
+      "Mariaa Silva",
+      "Maria Silva",
+      true
+    ],
+    [
+      "Maria",
+      "Maria Silva",
+      false
+    ],
+    [
+      "João Pereira",
+      "Pedro Pereira",
+      false
+    ],
+    [
+      "Ana Costa",
+      "Ana Lima",
+      false
+    ]
   ]
 }

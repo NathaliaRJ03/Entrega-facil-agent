@@ -49,13 +49,13 @@ function aoEnviarFormulario(e) {
   const corpo = [
     'Olá' + (primeiroNome ? ', ' + primeiroNome : '') + '!',
     '',
-    'Recebemos a sua reclamação' + (pedido ? ' sobre o pedido ' + pedido : '') + '.',
+    'A Entrega Fácil recebeu a sua reclamação' + (pedido ? ' sobre o pedido ' + pedido : '') + '.',
     'Nossa equipe vai analisar o caso e retornar o contato em breve.',
     '',
-    'Por segurança, nunca peça nem informe senhas ou dados de cartão por e-mail.',
+    'Se precisar complementar alguma informação, é só responder a este e-mail.',
     '',
     'Atenciosamente,',
-    NOME_REMETENTE,
+    'Equipe Entrega Fácil',
   ].join('\n');
 
   try {
@@ -70,4 +70,13 @@ function normalizar(texto) {
   return String(texto || '')
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
     .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+/**
+ * Diagnóstico: selecione esta função no editor e clique em Executar.
+ * Mostra no log (Execuções) a conta que o script usa para enviar e-mails.
+ * Deve aparecer entregafacil08@gmail.com.
+ */
+function verificarRemetente() {
+  console.log('Conta que envia: ' + Session.getEffectiveUser().getEmail());
 }

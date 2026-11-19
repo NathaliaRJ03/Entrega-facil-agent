@@ -103,7 +103,8 @@ RECLAMACOES = Contrato(
                         "quando a compra foi realizada"),
         "codigo_transacao": ("código da transação", "codigo da transacao",
                              "id da transação"),
-        "valor_pedido": ("valor do pedido", "valor da compra", "valor"),
+        "valor_pedido": ("valor do pedido", "valor da compra", "valor da cobrança",
+                         "valor cobrado", "valor"),
         "email_contato": ("e-mail de contato", "email de contato", "e-mail", "email"),
     },
     obrigatorias=("relato", "id_pedido", "nome_cliente"),
@@ -133,6 +134,15 @@ PEDIDOS = Contrato(
         "status_entrega": ("status da entrega", "atraso_status"),
         "descricao_pedido": ("descrição do pedido", "descricao do pedido", "produto",
                              "descricao_produto"),
+        # A Gold registra o motivo da reclamação e as quantidades do pedido.
+        "motivo_reclamacao": ("motivos_reclamacao", "motivo da reclamação",
+                              "motivo da reclamacao", "motivo_reclamacao"),
+        "qtd_itens": ("qtd_itens", "quantidade de itens", "quantidade pedida"),
+        "qtd_enviada": ("qtd_enviada", "quantidade enviada"),
+        # Opcionais: se a Gold tiver, o agente também confere com o Forms.
+        "valor_pedido": ("valor do pedido", "valor da compra", "valor total",
+                         "valor_total", "preco", "preço", "total"),
+        "email_cliente": ("e-mail", "email", "e-mail do cliente", "email_cliente"),
     },
     obrigatorias=("id_pedido", "nome_cliente"),
 )

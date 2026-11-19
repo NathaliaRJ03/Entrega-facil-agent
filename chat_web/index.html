@@ -1,0 +1,701 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Atendimento Entrega Fácil</title>
+<meta name="description" content="Atendimento online da Entrega Fácil: registre e acompanhe a reclamação do seu pedido.">
+<link rel="icon" type="image/png" href="/logo.png">
+<style>
+  :root {
+    --laranja:#f26a1b; --laranja-2:#ff8a3d; --laranja-escuro:#c84f0a; --laranja-suave:rgba(242,106,27,.10);
+    --bg:#f5f2ef; --card:#ffffff; --texto:#231a14; --suave:#7d6e63;
+    --bolha:#f6f2ee; --borda:#e9e1da; --campo:#faf7f4; --verde:#1fa463; --erro:#d93f3f;
+    --sombra:0 40px 80px -30px rgba(35,26,20,.35), 0 12px 30px -16px rgba(35,26,20,.2);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#120e0b; --card:#1c1612; --texto:#f6ebe1; --suave:#b3a193;
+      --bolha:#2a211a; --borda:#3a2e26; --campo:#171210; --laranja-suave:rgba(242,106,27,.16);
+      --sombra:0 40px 80px -30px rgba(0,0,0,.85), 0 12px 30px -16px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:#120e0b; --card:#1c1612; --texto:#f6ebe1; --suave:#b3a193;
+    --bolha:#2a211a; --borda:#3a2e26; --campo:#171210; --laranja-suave:rgba(242,106,27,.16);
+    --sombra:0 40px 80px -30px rgba(0,0,0,.85), 0 12px 30px -16px rgba(0,0,0,.6);
+  }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body {
+    margin:0; display:flex; justify-content:center; align-items:center; color:var(--texto);
+    font:15.5px/1.55 "Inter",system-ui,"Segoe UI",Roboto,sans-serif; -webkit-font-smoothing:antialiased;
+    background:
+      radial-gradient(900px 500px at 5% -10%, rgba(255,138,61,.20), transparent 60%),
+      radial-gradient(800px 500px at 108% 108%, rgba(242,106,27,.16), transparent 60%),
+      var(--bg);
+  }
+  main { width:100%; height:100dvh; display:flex; flex-direction:column; background:var(--card); overflow:hidden; position:relative; }
+  @media (min-width:820px) {
+    main { max-width:820px; height:min(94dvh,940px); border-radius:28px; box-shadow:var(--sombra); border:1px solid var(--borda); }
+  }
+  svg { display:block; }
+
+  /* ---------- cabeçalho ---------- */
+  header { background:var(--card); border-bottom:1px solid var(--borda); padding:14px 18px 0; position:relative; }
+  header::before { content:""; position:absolute; inset:0 0 auto 0; height:4px; background:linear-gradient(90deg, var(--laranja), var(--laranja-2), #ffb27a); }
+  .topo { display:flex; align-items:center; gap:12px; padding-top:4px; }
+  .topo > img { width:44px; height:44px; border-radius:14px; box-shadow:0 8px 18px -8px rgba(242,106,27,.7); }
+  .topo h1 { margin:0; font-size:1.05rem; line-height:1.2; font-weight:700; letter-spacing:-.1px; }
+  #status { display:flex; align-items:center; gap:7px; font-size:.8rem; color:var(--suave); }
+  #status::before { content:""; width:8px; height:8px; border-radius:50%; background:var(--verde); }
+  #status.digita { color:var(--laranja); }
+  #status.digita::before { background:var(--laranja); animation:pulso 1.2s infinite; }
+  @keyframes pulso { 0% { box-shadow:0 0 0 0 rgba(242,106,27,.55); } 70%,100% { box-shadow:0 0 0 8px rgba(242,106,27,0); } }
+  .espaco { flex:1; }
+  .ib {
+    width:38px; height:38px; border-radius:11px; border:1px solid var(--borda); cursor:pointer; color:var(--suave);
+    background:var(--card); display:grid; place-items:center; transition:all .18s;
+  }
+  .ib:hover { color:var(--laranja); border-color:var(--laranja); background:var(--laranja-suave); }
+  .ib svg { width:19px; height:19px; }
+
+  /* ---------- etapas ---------- */
+  .passos { display:flex; align-items:center; padding:12px 0 10px; position:relative; }
+  .passo {
+    display:flex; align-items:center; gap:8px; font:inherit; font-size:.78rem; font-weight:600; color:var(--suave); white-space:nowrap;
+    background:none; border:0; padding:5px 10px 5px 4px; border-radius:999px; cursor:pointer; transition:color .3s, background .2s, transform .2s;
+  }
+  .passo:hover, .passo:focus-visible, .passo.aberto { background:var(--laranja-suave); color:var(--texto); transform:translateY(-1px); }
+  .passo .n {
+    width:26px; height:26px; border-radius:50%; display:grid; place-items:center; font-size:.76rem;
+    border:2px solid var(--borda); background:var(--card); transition:all .35s cubic-bezier(.3,1.6,.5,1);
+  }
+  .passo:hover .n { transform:scale(1.12); border-color:var(--laranja); }
+  .passo:active { transform:scale(.97); }
+  .passo.atual { color:var(--texto); }
+  .passo.atual .n { border-color:var(--laranja); color:var(--laranja); box-shadow:0 0 0 4px var(--laranja-suave); animation:respira 2.4s ease-in-out infinite; }
+  @keyframes respira { 50% { box-shadow:0 0 0 7px rgba(242,106,27,.05); } }
+  .passo.feito { color:var(--texto); }
+  .passo.feito .n { background:var(--verde); border-color:var(--verde); color:#fff; animation:pop .45s cubic-bezier(.3,1.6,.5,1); }
+  @keyframes pop { 0% { transform:scale(.6); } 100% { transform:scale(1); } }
+  .passo.feito .n::before { content:"✓"; font-weight:800; }
+  .passo.feito .n span { display:none; }
+  .passo.bloqueado { opacity:.7; }
+  .trilho { flex:1; height:3px; min-width:14px; margin:0 6px; background:var(--borda); border-radius:3px; overflow:hidden; }
+  .trilho i { display:block; height:100%; width:0; background:linear-gradient(90deg, var(--verde), #3ad08a); transition:width .8s cubic-bezier(.3,.8,.3,1); }
+  .trilho.cheio i { width:100%; }
+  .geral { height:3px; background:var(--borda); margin:0 -18px; overflow:hidden; }
+  .geral i { display:block; height:100%; width:12%; background:linear-gradient(90deg, var(--laranja), var(--laranja-2)); border-radius:0 3px 3px 0; transition:width .9s cubic-bezier(.3,.8,.3,1); }
+
+  /* explicação do passo ao passar o mouse ou clicar */
+  #dicaPasso {
+    position:absolute; z-index:20; top:100%; left:0; width:min(290px, calc(100vw - 36px)); padding:13px 15px; border-radius:14px;
+    background:var(--card); border:1px solid var(--borda); box-shadow:0 22px 40px -18px rgba(35,26,20,.55); opacity:0; transform:translateY(-6px);
+    pointer-events:none; transition:opacity .18s, transform .18s;
+  }
+  #dicaPasso.on { opacity:1; transform:none; pointer-events:auto; }
+  #dicaPasso b { display:flex; align-items:center; gap:8px; font-size:.9rem; margin-bottom:3px; }
+  #dicaPasso p { margin:0 0 9px; font-size:.8rem; color:var(--suave); line-height:1.45; }
+  #dicaPasso .selo { font-size:.66rem; font-weight:700; letter-spacing:.3px; padding:2px 8px; border-radius:999px; background:var(--borda); color:var(--suave); text-transform:uppercase; }
+  #dicaPasso .selo.feito { background:rgba(31,164,99,.16); color:var(--verde); }
+  #dicaPasso .selo.atual { background:var(--laranja-suave); color:var(--laranja); }
+  #dicaPasso button { border:0; border-radius:10px; padding:8px 12px; font:inherit; font-size:.8rem; font-weight:700; color:#fff; cursor:pointer; background:linear-gradient(130deg, var(--laranja), var(--laranja-2)); }
+  #dicaPasso button:hover { filter:brightness(1.07); }
+  #dicaPasso::before { content:""; position:absolute; top:-6px; left:var(--seta,30px); width:11px; height:11px; background:var(--card); border-left:1px solid var(--borda); border-top:1px solid var(--borda); transform:rotate(45deg); }
+  @media (max-width:480px) { .passo b { display:none; } .passo.atual b { display:inline; } }
+
+  /* ---------- conversa ---------- */
+  #msgs { flex:1; overflow-y:auto; padding:18px 18px 10px; display:flex; flex-direction:column; gap:4px; scroll-behavior:smooth; position:relative; }
+  #msgs::-webkit-scrollbar { width:8px; } #msgs::-webkit-scrollbar-thumb { background:var(--borda); border-radius:8px; }
+  .dia { align-self:center; font-size:.72rem; color:var(--suave); padding:2px 12px; margin:4px 0 8px; display:flex; align-items:center; gap:10px; width:100%; }
+  .dia::before, .dia::after { content:""; flex:1; height:1px; background:var(--borda); }
+
+  .boasvindas { text-align:center; padding:10px 6px 4px; animation:entra .6s ease-out both; }
+  .boasvindas img { width:72px; height:72px; border-radius:22px; box-shadow:0 18px 34px -14px rgba(242,106,27,.75); }
+  .boasvindas h2 { margin:14px 0 4px; font-size:1.35rem; letter-spacing:-.3px; }
+  .boasvindas p { margin:0 auto; max-width:430px; color:var(--suave); font-size:.95rem; }
+  .como { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:18px 0 4px; text-align:left; }
+  .como div { border:1px solid var(--borda); background:var(--bolha); border-radius:14px; padding:12px; }
+  .como b { display:flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--laranja); color:#fff; font-size:.75rem; margin-bottom:8px; }
+  .como strong { display:block; font-size:.86rem; margin-bottom:2px; }
+  .como span { font-size:.78rem; color:var(--suave); line-height:1.4; display:block; }
+  @media (max-width:560px) { .como { grid-template-columns:1fr; } .como div { display:grid; grid-template-columns:24px 1fr; column-gap:10px; } .como b { grid-row:1 / span 2; margin:0; } }
+
+  .linha { display:flex; gap:8px; align-items:flex-end; margin-top:8px; animation:entra .32s cubic-bezier(.2,.8,.3,1) both; position:relative; }
+  .linha.eu { justify-content:flex-end; }
+  .linha.junto { margin-top:2px; }
+  .avatar { width:30px; height:30px; border-radius:9px; flex:none; }
+  .avatar.oculto { visibility:hidden; }
+  .b { max-width:80%; padding:10px 14px 7px; border-radius:18px; white-space:pre-wrap; overflow-wrap:anywhere; position:relative; }
+  .bot .b { background:var(--bolha); border:1px solid var(--borda); border-bottom-left-radius:5px; }
+  .eu .b { color:#fff; background:linear-gradient(130deg, var(--laranja), var(--laranja-2)); border-bottom-right-radius:5px; box-shadow:0 10px 22px -12px rgba(242,106,27,.8); }
+  .b strong { font-weight:700; }
+  .meta { display:flex; justify-content:flex-end; align-items:center; gap:5px; margin-top:2px; font-size:.67rem; opacity:.6; }
+  .tick { font-size:.78rem; letter-spacing:-3px; transition:color .3s, opacity .3s; }
+  .tick.lido { color:#c7f7dc; opacity:1; }
+  .copiar {
+    position:absolute; top:-12px; right:6px; display:none; border:1px solid var(--borda); background:var(--card); color:var(--suave);
+    border-radius:8px; font-size:.7rem; padding:2px 8px; cursor:pointer;
+  }
+  .bot .b:hover .copiar { display:block; }
+  @keyframes entra { from { opacity:0; transform:translateY(12px) scale(.98); } to { opacity:1; transform:none; } }
+
+  .erro .b { border-color:rgba(217,63,63,.45); background:rgba(217,63,63,.07); }
+  .retry { margin-top:8px; border:0; border-radius:10px; padding:8px 14px; font:inherit; font-size:.84rem; font-weight:700; color:#fff; background:var(--laranja); cursor:pointer; }
+  .retry:hover { background:var(--laranja-escuro); }
+
+  .cta {
+    display:flex; align-items:center; justify-content:center; gap:9px; margin:10px 0 4px; padding:13px 16px; border-radius:13px;
+    background:linear-gradient(130deg, var(--laranja), var(--laranja-2)); color:#fff !important; font-weight:700; text-decoration:none;
+    box-shadow:0 14px 26px -12px rgba(242,106,27,.9); transition:transform .15s;
+  }
+  .cta:hover { transform:translateY(-2px); } .cta svg { width:19px; height:19px; }
+
+  .cupom {
+    position:relative; display:flex; align-items:center; gap:12px; margin:10px 0 4px; padding:12px 14px 12px 16px; border-radius:14px;
+    border:2px dashed var(--laranja); background:var(--laranja-suave);
+  }
+  .cupom svg { width:26px; height:26px; color:var(--laranja); flex:none; }
+  .cupom .cod { flex:1; font-family:ui-monospace,Consolas,monospace; font-weight:800; font-size:1.08rem; letter-spacing:1.4px; color:var(--laranja-escuro); }
+  .cupom small { display:block; font-family:system-ui,sans-serif; font-weight:500; letter-spacing:0; color:var(--suave); font-size:.72rem; }
+  .cupom button { border:0; border-radius:9px; padding:8px 12px; cursor:pointer; font:inherit; font-size:.8rem; font-weight:700; color:#fff; background:var(--laranja); }
+  .cupom button.ok { background:var(--verde); }
+  :root[data-theme="dark"] .cupom .cod { color:var(--laranja-2); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cupom .cod { color:var(--laranja-2); } }
+
+  /* cartão para informar nome e ID do pedido */
+  .dados { align-self:stretch; margin:8px 0 4px 38px; padding:16px; border-radius:16px; border:1px solid var(--borda); background:var(--card); box-shadow:0 14px 30px -20px rgba(35,26,20,.5); animation:entra .4s both; }
+  .dados h3 { margin:0 0 2px; font-size:.95rem; } .dados p { margin:0 0 12px; font-size:.8rem; color:var(--suave); }
+  .dados label { display:block; font-size:.76rem; font-weight:600; margin:0 0 4px; color:var(--suave); }
+  .dados input { width:100%; padding:11px 14px; border-radius:11px; border:1.5px solid var(--borda); background:var(--campo); color:var(--texto); font:inherit; margin-bottom:10px; }
+  .dados input:focus { outline:none; border-color:var(--laranja); box-shadow:0 0 0 4px var(--laranja-suave); }
+  .dados .linha2 { display:grid; grid-template-columns:1.3fr 1fr; gap:10px; }
+  @media (max-width:520px) { .dados .linha2 { grid-template-columns:1fr; } .dados { margin-left:0; } }
+  .dados button { width:100%; border:0; border-radius:11px; padding:12px; font:inherit; font-weight:700; color:#fff; cursor:pointer; background:linear-gradient(130deg, var(--laranja), var(--laranja-2)); box-shadow:0 12px 22px -12px rgba(242,106,27,.9); }
+  .dados button:disabled { opacity:.5; cursor:default; }
+  .dados .aviso { margin-top:8px; font-size:.72rem; color:var(--suave); }
+
+  /* cartão de acompanhamento (aguardando / analisando) */
+  .acomp { align-self:stretch; margin:10px 0; padding:14px 16px; border-radius:16px; border:1px solid var(--borda); background:var(--bolha); animation:entra .4s both; }
+  .acomp h3 { margin:0 0 10px; font-size:.92rem; display:flex; align-items:center; gap:10px; }
+  .gira { width:16px; height:16px; border-radius:50%; border:3px solid var(--borda); border-top-color:var(--laranja); animation:gira .9s linear infinite; flex:none; }
+  @keyframes gira { to { transform:rotate(360deg); } }
+  .acomp ol { list-style:none; margin:0; padding:0; display:grid; gap:8px; }
+  .acomp li { display:flex; align-items:center; gap:10px; font-size:.86rem; color:var(--suave); }
+  .acomp li .p { width:20px; height:20px; border-radius:50%; border:2px solid var(--borda); display:grid; place-items:center; font-size:.7rem; flex:none; }
+  .acomp li.ativo { color:var(--texto); font-weight:600; } .acomp li.ativo .p { border-color:var(--laranja); border-top-color:transparent; animation:gira 1s linear infinite; }
+  .acomp li.feito { color:var(--texto); } .acomp li.feito .p { background:var(--verde); border-color:var(--verde); color:#fff; }
+  .acomp li.feito .p::before { content:"✓"; font-weight:800; }
+  .acomp .dica { margin-top:10px; font-size:.75rem; color:var(--suave); }
+  .acomp .barra { height:4px; border-radius:4px; background:var(--borda); overflow:hidden; margin-top:12px; }
+  .acomp .barra i { display:block; height:100%; width:35%; background:linear-gradient(90deg, var(--laranja), var(--laranja-2)); border-radius:4px; animation:vai 1.6s ease-in-out infinite; }
+  @keyframes vai { 0% { transform:translateX(-100%); } 100% { transform:translateX(300%); } }
+  .acomp.sai { animation:some .4s forwards; } @keyframes some { to { opacity:0; transform:scale(.96); height:0; padding:0; margin:0; border-width:0; } }
+
+  #dig { display:none; } #dig.on { display:flex; }
+  #dig .b { display:flex; align-items:center; gap:10px; padding:11px 15px; }
+  #dig .pontos { display:flex; gap:5px; }
+  #dig i { width:7px; height:7px; border-radius:50%; background:var(--laranja); animation:pula 1.2s infinite ease-in-out; }
+  #dig i:nth-child(2) { animation-delay:.15s; } #dig i:nth-child(3) { animation-delay:.3s; }
+  #dig span { font-size:.78rem; color:var(--suave); }
+  @keyframes pula { 0%,60%,100% { transform:translateY(0); opacity:.4; } 30% { transform:translateY(-5px); opacity:1; } }
+
+  #sugestoes { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; padding:6px 18px 12px; }
+  #sugestoes button {
+    display:flex; align-items:center; gap:12px; text-align:left; padding:12px 14px; border-radius:14px; cursor:pointer;
+    background:var(--card); border:1.5px solid var(--borda); color:var(--texto); font:inherit; font-size:.88rem; font-weight:600;
+    transition:transform .18s, border-color .18s, box-shadow .18s; animation:entra .5s both;
+  }
+  #sugestoes button:nth-child(2) { animation-delay:.05s; } #sugestoes button:nth-child(3) { animation-delay:.1s; } #sugestoes button:nth-child(4) { animation-delay:.15s; }
+  #sugestoes .ic { width:36px; height:36px; border-radius:10px; background:var(--laranja-suave); color:var(--laranja); display:grid; place-items:center; flex:none; }
+  #sugestoes .ic svg { width:19px; height:19px; }
+  #sugestoes button:hover { transform:translateY(-2px); border-color:var(--laranja); box-shadow:0 14px 26px -16px rgba(242,106,27,.9); }
+  @media (max-width:480px) { #sugestoes { grid-template-columns:1fr; } }
+
+  /* respostas rápidas depois da solução */
+  .rapidas { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 2px 38px; animation:entra .4s both; }
+  .rapidas button { border:1.5px solid var(--laranja); background:transparent; color:var(--laranja-escuro); border-radius:999px; padding:8px 14px; font:inherit; font-size:.84rem; font-weight:600; cursor:pointer; transition:all .18s; }
+  .rapidas button:hover { background:var(--laranja); color:#fff; transform:translateY(-1px); }
+  :root[data-theme="dark"] .rapidas button { color:var(--laranja-2); border-color:var(--laranja-2); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .rapidas button { color:var(--laranja-2); border-color:var(--laranja-2); } }
+  :root[data-theme="dark"] .rapidas button:hover, :root:not([data-theme="light"]) .rapidas button:hover { color:#fff; }
+
+  #desce {
+    position:absolute; right:16px; bottom:112px; width:38px; height:38px; border-radius:50%; border:1px solid var(--borda); cursor:pointer;
+    background:var(--card); color:var(--laranja); display:none; place-items:center; box-shadow:0 10px 22px -8px rgba(0,0,0,.4); z-index:3;
+  }
+  #desce.on { display:grid; animation:entra .25s both; } #desce svg { width:19px; height:19px; }
+  #toast { position:absolute; left:50%; top:110px; transform:translate(-50%,-20px); opacity:0; pointer-events:none; z-index:5; background:var(--texto); color:var(--card); padding:9px 16px; border-radius:999px; font-size:.82rem; font-weight:600; transition:all .3s; }
+  #toast.on { opacity:1; transform:translate(-50%,0); }
+
+  /* ---------- entrada ---------- */
+  form#f { display:flex; align-items:center; gap:10px; padding:12px 16px 8px; border-top:1px solid var(--borda); background:var(--card); }
+  .campo { position:relative; flex:1; min-width:0; }
+  form#f input {
+    width:100%; padding:13px 52px 13px 18px; border-radius:999px; border:1.5px solid var(--borda); background:var(--campo);
+    color:var(--texto); font:inherit; transition:border-color .15s, box-shadow .15s;
+  }
+  form#f input::placeholder { color:var(--suave); }
+  form#f input:focus { outline:none; border-color:var(--laranja); box-shadow:0 0 0 4px var(--laranja-suave); }
+  #cont { position:absolute; right:16px; top:50%; transform:translateY(-50%); font-size:.68rem; color:var(--suave); opacity:0; transition:opacity .2s; pointer-events:none; }
+  #cont.on { opacity:1; }
+  #enviar {
+    width:48px; height:48px; flex:none; border:0; border-radius:50%; cursor:pointer; color:#fff; display:grid; place-items:center;
+    background:linear-gradient(130deg, var(--laranja), var(--laranja-2)); box-shadow:0 12px 22px -10px rgba(242,106,27,.9);
+    transition:transform .18s, opacity .18s;
+  }
+  #enviar:hover:not(:disabled) { transform:scale(1.07); } #enviar:active:not(:disabled) { transform:scale(.94); }
+  #enviar:disabled { opacity:.4; cursor:default; } #enviar svg { width:21px; height:21px; }
+  .rodape { display:flex; align-items:center; justify-content:center; gap:6px; font-size:.68rem; color:var(--suave); padding:0 12px calc(10px + env(safe-area-inset-bottom)); background:var(--card); text-align:center; }
+  .rodape svg { width:12px; height:12px; flex:none; }
+  :focus-visible { outline:2px solid var(--laranja); outline-offset:2px; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="topo">
+      <img src="/logo.png" alt="Entrega Fácil">
+      <div><h1>Entrega Fácil</h1><div id="status">Atendimento online</div></div>
+      <div class="espaco"></div>
+      <button class="ib" id="nova" type="button" aria-label="Nova conversa" title="Nova conversa">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+      <button class="ib" id="tema" type="button" aria-label="Alternar tema claro e escuro" title="Tema">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+    </div>
+    <nav class="passos" aria-label="Etapas do atendimento">
+      <button type="button" class="passo atual" data-p="1" aria-describedby="dicaPasso"><span class="n"><span>1</span></span><b>Seus dados</b></button>
+      <div class="trilho"><i></i></div>
+      <button type="button" class="passo bloqueado" data-p="2" aria-describedby="dicaPasso"><span class="n"><span>2</span></span><b>Formulário</b></button>
+      <div class="trilho"><i></i></div>
+      <button type="button" class="passo bloqueado" data-p="3" aria-describedby="dicaPasso"><span class="n"><span>3</span></span><b>Solução</b></button>
+      <div id="dicaPasso" role="tooltip"></div>
+    </nav>
+    <div class="geral" aria-hidden="true"><i id="geralBarra"></i></div>
+  </header>
+
+  <div id="msgs" aria-live="polite">
+    <div class="boasvindas" id="hero">
+      <img src="/logo.png" alt="">
+      <h2>Como podemos ajudar?</h2>
+      <p>Registre a reclamação do seu pedido em poucos passos. Você acompanha tudo por aqui.</p>
+      <div class="como">
+        <div><b>1</b><strong>Conte o problema</strong><span>Informe seu nome e o ID do pedido.</span></div>
+        <div><b>2</b><strong>Preencha o formulário</strong><span>Já abre com seus dados preenchidos.</span></div>
+        <div><b>3</b><strong>Receba a solução</strong><span>A gente confere o pedido e responde aqui.</span></div>
+      </div>
+    </div>
+    <div class="dia">Hoje</div>
+    <div id="dig" class="linha bot" aria-label="Atendente digitando">
+      <img class="avatar" src="/logo.png" alt="">
+      <div class="b"><div class="pontos"><i></i><i></i><i></i></div><span>digitando…</span></div>
+    </div>
+  </div>
+  <button id="desce" type="button" aria-label="Ir para a última mensagem">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+  </button>
+  <div id="toast" role="status"></div>
+
+  <div id="sugestoes" aria-label="Atalhos">
+    <button type="button"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8M12 13v8"/></svg></span>Quero fazer uma reclamação</button>
+    <button type="button"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M5 3.5L2.5 6M19 3.5L21.5 6"/></svg></span>Meu pedido atrasou</button>
+    <button type="button"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h11v10H3zM14 9h4l3 3v4h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg></span>Meu pedido não foi enviado</button>
+    <button type="button"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8M21 3v5h-5M21 12a9 9 0 0 1-15.5 6.2L3 16M3 21v-5h5"/></svg></span>Quero cancelar ou ser reembolsado</button>
+  </div>
+
+  <form id="f">
+    <div class="campo">
+      <input id="t" autocomplete="off" maxlength="2000" placeholder="Escreva sua mensagem…" aria-label="Mensagem">
+      <span id="cont"></span>
+    </div>
+    <button id="enviar" aria-label="Enviar mensagem">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.4 20.4 22 12 3.4 3.6 3.3 10l13 2-13 2z"/></svg>
+    </button>
+  </form>
+  <div class="rodape">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+    Atendimento seguro: nunca informe senhas ou dados de cartão no chat
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const msgs = $("msgs"), dig = $("dig"), sug = $("sugestoes"), f = $("f"), t = $("t"), botao = $("enviar");
+const desce = $("desce"), tema = $("tema"), statusEl = $("status"), toastEl = $("toast"), cont = $("cont");
+const reduzido = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let sessao;
+try { sessao = localStorage.getItem("sessao_chat"); } catch (e) {}
+if (!sessao) novaSessao();
+function novaSessao() {
+  sessao = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()).replace(/[^A-Za-z0-9]/g, "");
+  try { localStorage.setItem("sessao_chat", sessao); } catch (e) {}
+}
+
+/* ---------- tema e nova conversa ---------- */
+try { const s = localStorage.getItem("tema_chat"); if (s) document.documentElement.dataset.theme = s; } catch (e) {}
+tema.addEventListener("click", () => {
+  const escuro = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() === "#120e0b";
+  const novo = escuro ? "light" : "dark";
+  document.documentElement.dataset.theme = novo;
+  try { localStorage.setItem("tema_chat", novo); } catch (e) {}
+});
+$("nova").addEventListener("click", () => { novaSessao(); location.reload(); });
+
+function toast(texto) {
+  toastEl.textContent = texto; toastEl.classList.add("on");
+  clearTimeout(toast.id); toast.id = setTimeout(() => toastEl.classList.remove("on"), 1800);
+}
+
+/* ---------- etapas: 1 dados, 2 formulário, 3 solução ---------- */
+let etapa = 1, etapaConcluida = false, ultimoLink = "";
+function passo(n, concluido) {
+  etapa = n; etapaConcluida = !!concluido;
+  document.querySelectorAll(".passo").forEach(el => {
+    const p = Number(el.dataset.p);
+    el.classList.toggle("feito", !!(p < n || (concluido && p === n)));
+    el.classList.toggle("atual", !!(p === n && !concluido));
+    el.classList.toggle("bloqueado", p > n);
+  });
+  document.querySelectorAll(".trilho").forEach((el, i) => el.classList.toggle("cheio", !!(i + 1 < n || (concluido && i + 1 <= n))));
+  const alvo = concluido ? 100 : [12, 50, 80][n - 1] || 12;
+  $("geralBarra").style.width = alvo + "%";
+}
+
+/* explicação e ação de cada passo */
+const PASSOS = {
+  1: { titulo: "Seus dados", texto: "Informe seu nome e o ID do pedido, como aparecem na compra. Conferimos tudo antes de enviar o formulário.", acao: "Informar meus dados" },
+  2: { titulo: "Formulário", texto: "Preencha o formulário, que já abre com seus dados. Quando você enviar, a aba fecha sozinha e a gente continua por aqui.", acao: "Abrir o formulário" },
+  3: { titulo: "Solução", texto: "Conferimos as informações com o seu pedido e mostramos a solução aqui no chat.", acao: "Ver a solução" },
+};
+const dicaEl = $("dicaPasso");
+let dicaTempo = null, dicaFixa = false;
+function estadoPasso(p) {
+  if (p < etapa || (etapaConcluida && p === etapa)) return ["feito", "Concluído"];
+  if (p === etapa) return ["atual", "Em andamento"];
+  return ["", "Próximo"];
+}
+function mostrarDica(btn, fixar) {
+  clearTimeout(dicaTempo);
+  const p = Number(btn.dataset.p), d = PASSOS[p], [classe, rotulo] = estadoPasso(p);
+  const podeAgir = (p === 1 && etapa === 1) || (p === 2 && ultimoLink) || (p === 3 && etapaConcluida);
+  dicaEl.innerHTML = "<b>" + d.titulo + ' <span class="selo ' + classe + '">' + rotulo + "</span></b><p>" + d.texto + "</p>" +
+    (podeAgir ? '<button type="button" id="dicaAcao">' + d.acao + "</button>" : "");
+  const pai = dicaEl.parentElement.getBoundingClientRect(), r = btn.getBoundingClientRect();
+  const esquerda = Math.max(0, Math.min(r.left - pai.left, pai.width - dicaEl.offsetWidth));
+  dicaEl.style.left = esquerda + "px";
+  dicaEl.style.setProperty("--seta", Math.max(14, r.left - pai.left - esquerda + r.width / 2 - 6) + "px");
+  dicaEl.classList.add("on");
+  document.querySelectorAll(".passo").forEach(b => b.classList.toggle("aberto", b === btn));
+  dicaFixa = !!fixar;
+  const acao = $("dicaAcao");
+  if (acao) acao.addEventListener("click", () => { esconderDica(true); acionarPasso(p); });
+}
+function esconderDica(forcar) {
+  if (dicaFixa && !forcar) return;
+  dicaTempo = setTimeout(() => { dicaEl.classList.remove("on"); document.querySelectorAll(".passo").forEach(b => b.classList.remove("aberto")); dicaFixa = false; }, forcar ? 0 : 160);
+}
+function acionarPasso(p) {
+  if (p === 1) { if (etapa === 1) { if (!document.querySelector(".dados")) cartaoDados(); else document.querySelector("#dn").focus(); } }
+  else if (p === 2 && ultimoLink) { if (!abrirFormulario(ultimoLink)) window.open(ultimoLink, "_blank", "noopener"); }
+  else if (p === 3 && etapaConcluida) {
+    const bots = document.querySelectorAll(".bot .b"); const ultimo = bots[bots.length - 1];
+    if (ultimo) { ultimo.scrollIntoView({ behavior: reduzido ? "auto" : "smooth", block: "center" }); ultimo.animate([{ boxShadow: "0 0 0 0 rgba(242,106,27,.7)" }, { boxShadow: "0 0 0 10px rgba(242,106,27,0)" }], { duration: 900 }); }
+  }
+}
+document.querySelectorAll(".passo").forEach(b => {
+  b.addEventListener("mouseenter", () => { if (!dicaFixa) mostrarDica(b, false); });
+  b.addEventListener("mouseleave", () => esconderDica(false));
+  b.addEventListener("focus", () => { if (!dicaFixa) mostrarDica(b, false); });
+  b.addEventListener("blur", () => esconderDica(false));
+  b.addEventListener("click", (e) => { e.stopPropagation(); mostrarDica(b, true); });
+});
+dicaEl.addEventListener("mouseenter", () => clearTimeout(dicaTempo));
+dicaEl.addEventListener("mouseleave", () => esconderDica(false));
+document.addEventListener("click", (e) => { if (!dicaEl.contains(e.target)) esconderDica(true); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") esconderDica(true); });
+
+/* ---------- mensagens ---------- */
+function esc(s) { return s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function hora() { return new Date().toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }); }
+const ICONE_FORM = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>';
+const ICONE_CUPOM = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9a2 2 0 0 0 0 6v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3a2 2 0 0 1 0-6V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1z"/><path d="M13 5v2M13 17v2M13 11v2"/></svg>';
+const COD_CUPOM = /\b(DESCULPA5|FRETEZERO|ATRASO10|PRIORIDADE15|ESPECIAL20|[A-Z]{4,}\d{1,2})\b/g;
+
+function formatar(texto) {
+  // URLs viram marcadores antes de procurar cupons, para nunca quebrar um link.
+  const links = [];
+  let html = esc(texto).replace(/(https?:\/\/[^\s<]+)/g, (u) => { links.push(u); return "§§" + (links.length - 1) + "§§"; });
+  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/^[-*] /gm, "• ");
+  let temCta = false, temCupom = false, cartaoCupom = "";
+  html = html.replace(COD_CUPOM, (c) => {
+    if (!/\d/.test(c)) return c;
+    if (!temCupom) {
+      temCupom = true;
+      cartaoCupom = '<span class="cupom">' + ICONE_CUPOM + '<span class="cod">' + c + "<small>Seu cupom de desconto</small></span>" +
+                    '<button type="button" data-cod="' + c + '">Copiar</button></span>';
+    }
+    return "<strong>" + c + "</strong>";
+  });
+  html = html.replace(/§§(\d+)§§/g, (_, i) => {
+    const u = links[Number(i)], limpo = u.replace(/[.,;)]+$/, ""), resto = u.slice(limpo.length);
+    if (/docs\.google\.com\/forms/.test(limpo)) { temCta = true; return '<a class="cta" href="' + limpo + '" target="_blank" rel="noopener">' + ICONE_FORM + "Abrir o formulário</a>" + resto; }
+    return '<a href="' + limpo + '" target="_blank" rel="noopener" style="color:inherit;font-weight:600;text-decoration:underline">' + limpo + "</a>" + resto;
+  });
+  return { html: html + cartaoCupom, temCta, temCupom };
+}
+
+function bolha(texto, quem, opcoes) {
+  opcoes = opcoes || {};
+  const l = document.createElement("div");
+  const anterior = dig.previousElementSibling;
+  const junto = anterior && anterior.classList.contains(quem) && anterior.classList.contains("linha");
+  l.className = "linha " + quem + (junto ? " junto" : "") + (opcoes.erro ? " erro" : "");
+  if (junto && quem === "bot") { const a = anterior.querySelector(".avatar"); if (a) a.classList.add("oculto"); }
+  const { html, temCta, temCupom } = formatar(texto);
+  const achado = texto.match(/https:\/\/docs\.google\.com\/forms\/[^\s<]+/);
+  if (achado) ultimoLink = achado[0].replace(/[.,;)]+$/, "");
+  const corpo = document.createElement("div");
+  corpo.className = "b";
+  const meta = '<span class="meta"><span>' + hora() + "</span>" + (quem === "eu" ? '<span class="tick">✓✓</span>' : "") + "</span>";
+  l.innerHTML = (quem === "bot" ? '<img class="avatar" src="/logo.png" alt="">' : "");
+  l.appendChild(corpo);
+  msgs.insertBefore(l, dig);
+
+  const simples = quem === "bot" && !temCta && !temCupom && !reduzido && !opcoes.erro && texto.length < 700;
+  if (simples) {
+    const palavras = texto.split(/(\s+)/);
+    let i = 0;
+    const passoMs = Math.max(12, Math.min(38, 1400 / palavras.length));
+    const timer = setInterval(() => {
+      i += 2; corpo.textContent = palavras.slice(0, i).join("");
+      rolar();
+      if (i >= palavras.length) { clearInterval(timer); finalizar(); }
+    }, passoMs);
+  } else { finalizar(); }
+
+  function finalizar() {
+    corpo.innerHTML = html + meta;
+    if (quem === "eu") corpo.querySelector(".tick").style.opacity = ".5";
+    if (quem === "bot" && !opcoes.erro) {
+      const c = document.createElement("button");
+      c.className = "copiar"; c.type = "button"; c.textContent = "Copiar";
+      c.addEventListener("click", () => copiar(texto, "Mensagem copiada"));
+      corpo.appendChild(c);
+    }
+    if (opcoes.retry) {
+      const r = document.createElement("button");
+      r.className = "retry"; r.type = "button"; r.textContent = "Tentar de novo";
+      r.addEventListener("click", () => { l.remove(); opcoes.retry(); });
+      corpo.insertBefore(r, corpo.querySelector(".meta"));
+    }
+    corpo.querySelectorAll(".cupom button").forEach(b => b.addEventListener("click", () => {
+      copiar(b.dataset.cod, "Cupom copiado"); b.textContent = "Copiado ✓"; b.classList.add("ok");
+    }));
+    if (quem === "bot" && !temCta && pedeDados(texto)) cartaoDados();
+    if (quem === "bot" && !opcoes.erro && recebeuForm && !temCta) respostasRapidas();
+    rolar();
+  }
+  rolar();
+  return l;
+}
+function copiar(texto, aviso) {
+  const ok = () => toast(aviso);
+  if (navigator.clipboard && window.isSecureContext !== false) navigator.clipboard.writeText(texto).then(ok, () => toast("Não consegui copiar"));
+  else { const a = document.createElement("textarea"); a.value = texto; document.body.appendChild(a); a.select(); try { document.execCommand("copy"); ok(); } catch (e) { toast("Não consegui copiar"); } a.remove(); }
+}
+function rolar() { msgs.scrollTop = msgs.scrollHeight; }
+function digitando(on) {
+  dig.classList.toggle("on", on); statusEl.classList.toggle("digita", on);
+  statusEl.textContent = on ? "digitando…" : "Atendimento online"; rolar();
+}
+msgs.addEventListener("scroll", () => desce.classList.toggle("on", msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight > 160));
+desce.addEventListener("click", rolar);
+
+/* marca "lido" nas mensagens do cliente quando o atendente responde */
+function marcarLido() { document.querySelectorAll(".eu .tick").forEach(el => { el.classList.add("lido"); }); }
+
+/* ---------- respostas rápidas após a solução ---------- */
+function respostasRapidas() {
+  const antigo = document.querySelector(".rapidas"); if (antigo) antigo.remove();
+  const r = document.createElement("div");
+  r.className = "rapidas";
+  r.innerHTML = '<button type="button" data-a="ok">Resolvido, obrigado!</button><button type="button" data-a="duvida">Tenho uma dúvida</button><button type="button" data-a="novo">Novo atendimento</button>';
+  r.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+    const a = b.dataset.a;
+    r.remove();
+    if (a === "novo") { novaSessao(); location.reload(); }
+    else enviar(a === "ok" ? "Resolvido, obrigado!" : "Tenho uma dúvida sobre a solução.");
+  }));
+  msgs.insertBefore(r, dig);
+}
+
+/* ---------- cartão para informar nome e ID do pedido ---------- */
+function pedeDados(texto) {
+  const x = texto.toLowerCase();
+  return /nome/.test(x) && /(id|número|numero|pedido)/.test(x) && /\?|poderia|pode |informe|envie|preciso|me passa|passar/.test(x);
+}
+function cartaoDados() {
+  const antigo = document.querySelector(".dados"); if (antigo) antigo.remove();
+  const c = document.createElement("div");
+  c.className = "dados";
+  c.innerHTML = '<h3>Dados do pedido</h3><p>Informe como aparecem na sua compra. Vamos conferir antes de enviar o formulário.</p>' +
+    '<div class="linha2"><div><label for="dn">Nome completo</label><input id="dn" autocomplete="name" maxlength="80" placeholder="Ex.: Maria da Silva"></div>' +
+    '<div><label for="dp">ID do pedido</label><input id="dp" inputmode="numeric" maxlength="40" placeholder="Ex.: 5001040"></div></div>' +
+    '<button type="button" id="dok" disabled>Enviar dados</button><div class="aviso">Você também pode digitar os dados na conversa.</div>';
+  msgs.insertBefore(c, dig);
+  const dn = c.querySelector("#dn"), dp = c.querySelector("#dp"), ok = c.querySelector("#dok");
+  const validar = () => { ok.disabled = !(dn.value.trim().length >= 3 && dp.value.trim().length >= 3) || botao.disabled; };
+  [dn, dp].forEach(el => el.addEventListener("input", validar));
+  const mandar = () => {
+    if (ok.disabled) return;
+    const nome = dn.value.trim(), pedido = dp.value.trim();
+    c.remove();
+    enviar("Meu nome é " + nome + " e o ID do pedido é " + pedido + ".");
+  };
+  ok.addEventListener("click", mandar);
+  [dn, dp].forEach(el => el.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); mandar(); } }));
+  rolar();
+  if (!matchMedia("(pointer:coarse)").matches) dn.focus();
+}
+
+/* ---------- cartão de acompanhamento do formulário ---------- */
+let cartao = null, relogio = null;
+function cartaoAguardando() {
+  removerCartao(true);
+  cartao = document.createElement("div");
+  cartao.className = "acomp";
+  cartao.innerHTML = '<h3><span class="gira"></span>Aguardando o envio do formulário</h3>' +
+    '<ol><li class="feito"><span class="p"></span>Dados do pedido confirmados</li>' +
+    '<li class="ativo"><span class="p"></span>Você preenche e envia o formulário</li>' +
+    '<li><span class="p"></span>Analisamos e preparamos a solução</li></ol>' +
+    '<div class="barra"><i></i></div><div class="dica">Assim que você enviar, a aba do formulário fecha sozinha e a gente continua por aqui. <b id="tempo"></b></div>';
+  msgs.insertBefore(cartao, dig); rolar();
+  const ini = Date.now();
+  relogio = setInterval(() => {
+    const s = Math.floor((Date.now() - ini) / 1000), el = $("tempo");
+    if (el) el.textContent = "(" + Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0") + ")";
+  }, 1000);
+}
+function cartaoAnalisando() {
+  removerCartao(true);
+  cartao = document.createElement("div");
+  cartao.className = "acomp";
+  cartao.innerHTML = '<h3><span class="gira"></span>Recebemos o seu formulário</h3>' +
+    '<ol><li class="feito"><span class="p"></span>Formulário recebido</li>' +
+    '<li class="ativo" id="a2"><span class="p"></span>Conferindo as informações com o seu pedido</li>' +
+    '<li id="a3"><span class="p"></span>Preparando a sua solução</li></ol><div class="barra"><i></i></div>';
+  msgs.insertBefore(cartao, dig); rolar();
+  setTimeout(() => { const a2 = $("a2"), a3 = $("a3"); if (a2 && a3) { a2.className = "feito"; a3.className = "ativo"; } }, 3500);
+}
+function removerCartao(imediato) {
+  clearInterval(relogio);
+  if (!cartao) return;
+  const c = cartao; cartao = null;
+  if (imediato) c.remove(); else { c.classList.add("sai"); setTimeout(() => c.remove(), 450); }
+}
+
+/* ---------- aba do formulário: abre pela página e fecha sozinha ao receber ---------- */
+let janelaForm = null;
+function abrirFormulario(url) {
+  try {
+    // Sem "noopener" de propósito: só quem abriu a aba consegue fechá-la depois.
+    const w = window.open(url, "forms_entrega");
+    if (w) { janelaForm = w; return true; }
+  } catch (e) {}
+  return false;
+}
+function fecharFormulario() {
+  let fechou = false;
+  try {
+    if (janelaForm && !janelaForm.closed) { janelaForm.close(); fechou = janelaForm.closed || true; }
+  } catch (e) {}
+  janelaForm = null;
+  try { window.focus(); } catch (e) {}
+  toast(fechou ? "Formulário recebido! Fechamos a aba para você." : "Formulário recebido! Pode fechar a aba do formulário.");
+}
+msgs.addEventListener("click", (e) => {
+  const a = e.target.closest && e.target.closest("a.cta");
+  if (a && abrirFormulario(a.href)) e.preventDefault();
+});
+
+/* ---------- comunicação com o servidor ---------- */
+let recebeuForm = false;
+let espera = null;   // espera do envio do formulário (cancelada se o cliente escrever)
+
+async function lerFluxo(url, corpo, sinal) {
+  const r = await fetch(url, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(corpo), signal: sinal });
+  if (!r.ok || !r.body) throw new Error("http " + r.status);
+  const leitor = r.body.getReader(), dec = new TextDecoder();
+  let resto = "", aguardando = false;
+  for (;;) {
+    const { value, done } = await leitor.read();
+    if (done) break;
+    resto += dec.decode(value, { stream:true });
+    const linhas = resto.split("\n"); resto = linhas.pop();
+    for (const l of linhas) {
+      if (!l) continue;
+      const ev = JSON.parse(l);
+      if (ev.texto) { marcarLido(); removerCartao(false); bolha(ev.texto, "bot"); }
+      if (ev.aguardando) { aguardando = true; passo(2); }
+      if (ev.recebido) { recebeuForm = true; fecharFormulario(); passo(3); digitando(false); cartaoAnalisando(); }
+    }
+  }
+  return aguardando;
+}
+
+async function esperarFormulario() {
+  espera = new AbortController();
+  recebeuForm = false;
+  const meu = espera;
+  cartaoAguardando();
+  try {
+    await lerFluxo("/api/aguardar", { sessao }, meu.signal);
+    if (espera === meu && recebeuForm) passo(3, true);
+  } catch (err) {
+    if (err.name === "AbortError") return;
+    bolha("Perdi a conexão ao acompanhar o formulário. Se você já enviou, escreva aqui que eu continuo.", "bot", { erro:true });
+  }
+  if (espera === meu) { espera = null; removerCartao(false); digitando(false); }
+}
+
+async function enviar(texto, repetir) {
+  if (sug.isConnected) sug.remove();
+  const hero = $("hero"); if (hero) hero.style.display = "none";
+  const antigo = document.querySelector(".dados"); if (antigo) antigo.remove();
+  const rapidas = document.querySelector(".rapidas"); if (rapidas) rapidas.remove();
+  if (espera) { espera.abort(); espera = null; removerCartao(true); }
+  botao.disabled = true; t.disabled = true;
+  recebeuForm = false;
+  if (!repetir) bolha(texto, "eu");
+  digitando(true);
+  let aguardando = false, falhou = false;
+  try {
+    aguardando = await lerFluxo("/api/mensagem", { sessao, texto });
+  } catch (err) {
+    falhou = true;
+    bolha("Não consegui falar com o atendimento agora. Verifique sua conexão e tente novamente.", "bot", { erro:true, retry: () => enviar(texto, true) });
+  }
+  digitando(false); botao.disabled = false; t.disabled = false; if (!falhou) t.focus();
+  if (aguardando) esperarFormulario();
+}
+
+f.addEventListener("submit", e => {
+  e.preventDefault();
+  const texto = t.value.trim();
+  if (!texto || botao.disabled) return;
+  t.value = ""; cont.classList.remove("on");
+  enviar(texto);
+});
+t.addEventListener("input", () => {
+  const n = t.value.length;
+  cont.textContent = 2000 - n; cont.classList.toggle("on", n > 1700);
+});
+sug.querySelectorAll("button").forEach(b => b.addEventListener("click", () => enviar(b.textContent.trim())));
+t.focus();
+</script>
+</body>
+</html>

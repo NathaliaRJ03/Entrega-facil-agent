@@ -135,11 +135,11 @@ humana.
 |---|---|---|---|
 | Atraso na entrega | Atendimento | Confirma o atraso na Gold; se confirmado, oferece o cupom da faixa; se sem data de entrega, revisão humana | Só com atraso confirmado |
 | Produto errado | Trocas e Devoluções | Mostra o produto da Gold, pede foto, pergunta troca ou reembolso | Não |
-| Cancelamento ou reembolso | Financeiro | Nada entregue: cancelamento; algo entregue: devolução e reembolso | Não |
-| Cobrança diferente | Financeiro | A Gold não tem valores; pede comprovante se não houver código da transação | Não |
-| Pedido não encontrado | Atendimento | Informa a situação se a Gold achar; senão pede ID e nome e vai para revisão humana | Não |
-| Pedido não enviado | Logística | Informa a data prevista e as remessas entregues | Não |
-| Itens faltando | Logística | Compara remessas entregues com o total; pede foto se tudo consta entregue | Não |
+| Cancelamento ou reembolso | Financeiro | Diz que não consegue validar a solicitação e a encaminha para análise | Não |
+| Cobrança diferente | Financeiro | Igual ao cancelamento ou reembolso; a Gold não tem valores; pede comprovante se não houver código da transação | Não |
+| Pedido não encontrado | Atendimento | Gold achou: informa situação e previsão. Não achou: um analista retorna em breve com o número do pedido (revisão humana) | Não |
+| Pedido não enviado | Logística | Diz que a solicitação foi enviada para análise do setor responsável | Não |
+| Itens faltando | Logística | Diz que a equipe vai informar as etapas para a devolução do pedido | Não |
 
 O registro do atendimento grava `categoria` e `equipe_responsavel`.
 

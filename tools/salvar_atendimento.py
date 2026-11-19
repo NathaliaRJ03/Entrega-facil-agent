@@ -1,12 +1,17 @@
 """Registra que uma reclamação real foi atendida, sem guardar o texto do cliente."""
 
 import csv
+import logging
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 from integrations import latencia_sheets
 from integrations.contratos import PASTA_SAIDA
-from integrations.workspace import carregar_reclamacoes
+from integrations.workspace import carregar_reclamacoes, excluir_resposta
 from tools.tipos_reclamacao import classificar
+
+logger = logging.getLogger(__name__)
+_EXECUTOR_EXCLUSAO = ThreadPoolExecutor(max_workers=1, thread_name_prefix="forms-exclusao")
 
 ARQUIVO_ATENDIMENTOS = PASTA_SAIDA / "atendimentos.csv"
 COLUNAS = (
@@ -58,13 +63,16 @@ def carregar_reclamacoes_pendentes() -> tuple[list[dict[str, str]], str, str]:
 
 
 def obter_proxima_reclamacao() -> tuple[dict[str, str] | None, str, str]:
-    """Obtém a primeira pendência, sem expor as demais ao modelo."""
+    """Obtém a pendência mais recente (a que o cliente acabou de enviar).
+
+    As demais não são expostas ao modelo.
+    """
     pendentes, origem, erro = carregar_reclamacoes_pendentes()
     if erro:
         return None, origem, erro
     if not pendentes:
         return None, origem, ""
-    return pendentes[0], origem, ""
+    return pendentes[-1], origem, ""
 
 
 def registrar_atendimento(
@@ -102,6 +110,13 @@ def registrar_atendimento(
 
     from tools.politica_cupons import codigos_aceitos
 
+    conferencia = pedido.get("conferencia", {})
+    if conferencia.get("resultado") != "confere":
+        return (
+            "A conferência do formulário com a Gold não foi confirmada; atendimento "
+            "não registrado. Use encaminhar_para_revisao_humana."
+        )
+
     atraso_calculado, dias = _avaliar_atraso(pedido)
     atraso = "nao" if atraso_calculado == "não" else atraso_calculado
     tipo = (proxima.get("tipo_contestacao") or "").strip()[:LIMITE_TIPO]
@@ -131,7 +146,17 @@ def registrar_atendimento(
     }
 
     _gravar(registro, abertura=proxima.get("data_envio", ""))
+    # Atendimento concluído: a resposta do Forms não precisa mais ficar guardada.
+    # Se não der para apagar, o ID já está em atendimentos.csv e não volta à fila.
+    # Em segundo plano, para o cliente não esperar a planilha.
+    _EXECUTOR_EXCLUSAO.submit(_apagar_resposta, reclamacao, proxima.get("data_envio", ""))
     return f"Atendimento registrado para {reclamacao}."
+
+
+def _apagar_resposta(reclamacao: str, data_envio: str) -> None:
+    motivo = excluir_resposta(data_envio)
+    if motivo:
+        logger.warning("Resposta %s não apagada do Forms: %s", reclamacao, motivo)
 
 
 def encaminhar_para_revisao_humana(id_reclamacao: str) -> str:

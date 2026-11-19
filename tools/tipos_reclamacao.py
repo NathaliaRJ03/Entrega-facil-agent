@@ -30,10 +30,11 @@ TIPOS: tuple[TipoReclamacao, ...] = (
         equipe="Atendimento",
         acao=(
             "Chame consultar_pedido. Se o pedido for confirmado na Gold, informe ao "
-            "cliente a situação, a previsão e as entregas exatamente como vieram da "
-            "ferramenta e chame registrar_atendimento. Se não for encontrado ou o nome "
-            "não conferir, peça ao cliente que confirme o número do pedido e o nome "
-            "usado na compra e chame encaminhar_para_revisao_humana. Sem cupom."
+            "cliente só a situação e a previsão, exatamente como vieram da ferramenta, "
+            "e chame registrar_atendimento. Se o pedido não for encontrado (ou o nome "
+            "não conferir), diga ao cliente que não localizou o pedido, que o caso foi "
+            "encaminhado a um analista e que ele retornará em breve com o número do "
+            "pedido. Depois chame encaminhar_para_revisao_humana. Sem cupom."
         ),
     ),
     TipoReclamacao(
@@ -42,10 +43,10 @@ TIPOS: tuple[TipoReclamacao, ...] = (
         marcadores=("nao_enviad", "nao_foi_enviad", "nao_despach", "nao_saiu", "nao_postad"),
         equipe="Logística",
         acao=(
-            "Chame consultar_pedido. Informe ao cliente a previsão de entrega e quantas "
-            "remessas já têm data de entrega, exatamente como vieram da Gold. Diga que o "
-            "caso foi encaminhado à equipe de Logística para verificar o envio e chame "
-            "registrar_atendimento. Não ofereça cupom: o cliente não reclamou de atraso."
+            "Chame consultar_pedido só para confirmar o pedido. Diga ao cliente que a "
+            "solicitação dele foi enviada para análise do setor responsável (Logística), "
+            "sem prometer prazo, e chame registrar_atendimento. Não ofereça cupom: o "
+            "cliente não reclamou de atraso."
         ),
     ),
     TipoReclamacao(
@@ -55,10 +56,11 @@ TIPOS: tuple[TipoReclamacao, ...] = (
         equipe="Financeiro",
         acao=(
             "Chame consultar_pedido só para confirmar o pedido. A Gold não tem valores "
-            "pagos: não confirme, não calcule e não prometa valores. Se "
-            "codigo_transacao_informado for 'não', peça o comprovante de pagamento. "
-            "Diga que o caso foi encaminhado ao Financeiro e chame registrar_atendimento. "
-            "Sem cupom."
+            "pagos: não confirme, não calcule e não prometa valores. Trate como um "
+            "pedido de cancelamento ou reembolso: diga ao cliente que, como não consegue "
+            "validar a solicitação por aqui, ela está sendo encaminhada ao Financeiro "
+            "para análise. Se codigo_transacao_informado for 'não', peça também o "
+            "comprovante de pagamento. Chame registrar_atendimento. Sem cupom."
         ),
     ),
     TipoReclamacao(
@@ -67,12 +69,10 @@ TIPOS: tuple[TipoReclamacao, ...] = (
         marcadores=("cancel", "reembols", "estorn", "devoluc", "devolv", "arrepend"),
         equipe="Financeiro",
         acao=(
-            "Chame consultar_pedido. Se remessas_entregues for 0, diga que o pedido "
-            "ainda não consta como entregue e que o pedido de cancelamento foi "
-            "encaminhado ao Financeiro. Se houver remessa entregue, diga que a "
-            "solicitação segue como devolução e reembolso, encaminhada ao Financeiro. "
-            "Não prometa prazo nem valor de reembolso. Chame registrar_atendimento. "
-            "Sem cupom."
+            "Chame consultar_pedido só para confirmar o pedido. Diga ao cliente que, como "
+            "não consegue validar a solicitação por aqui, ela está sendo encaminhada ao "
+            "Financeiro para análise. Não confirme cancelamento nem reembolso e não "
+            "prometa prazo nem valor. Chame registrar_atendimento. Sem cupom."
         ),
     ),
     TipoReclamacao(
@@ -81,10 +81,9 @@ TIPOS: tuple[TipoReclamacao, ...] = (
         marcadores=("faltand", "faltou", "falta", "incomplet", "veio_sem"),
         equipe="Logística",
         acao=(
-            "Chame consultar_pedido. Se remessas_entregues for menor que "
-            "quantidade_remessas, explique que parte do pedido ainda não consta como "
-            "entregue na base. Caso contrário, peça uma foto da embalagem e dos itens "
-            "recebidos. Diga que o caso foi encaminhado à Logística e chame "
+            "Chame consultar_pedido só para confirmar o pedido. Diga ao cliente que a "
+            "equipe vai informar as etapas para a devolução do pedido, sem prometer "
+            "prazo, e que o caso foi encaminhado à Logística. Chame "
             "registrar_atendimento. Sem cupom."
         ),
     ),

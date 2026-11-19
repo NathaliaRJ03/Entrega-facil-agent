@@ -2,7 +2,9 @@
 
 import json
 import re
+import time
 from datetime import date, datetime
+from pathlib import Path
 
 from integrations.contratos import PEDIDOS, normalizar_coluna
 from integrations.databricks import LIMITE_LINHAS_POR_PEDIDO, carregar_pedido
@@ -16,11 +18,43 @@ from integrations.workspace import carregar_reclamacoes
 
 from .politica_cupons import faixa_aplicavel
 from .tipos_reclamacao import classificar
+from .verificacao import conferir, nomes_equivalentes
 from .salvar_atendimento import (
     carregar_reclamacoes_pendentes,
     obter_proxima_reclamacao,
     resultados_por_id,
 )
+
+_CACHE_PEDIDOS: dict[str, tuple[float, tuple]] = {}
+_VALIDADE_PEDIDO_S = 60.0
+_ARQUIVO_SCRIPTS = Path(__file__).resolve().parent.parent / "knowledge_base" / "scripts_por_tipo_reclamacao.md"
+
+
+def _carregar_pedido_cache(id_pedido: str):
+    """Evita repetir a consulta à Gold nas várias ferramentas do mesmo atendimento."""
+    agora = time.monotonic()
+    guardado = _CACHE_PEDIDOS.get(id_pedido)
+    if guardado and agora - guardado[0] < _VALIDADE_PEDIDO_S:
+        return guardado[1]
+    resultado = carregar_pedido(PEDIDOS, id_pedido)
+    if resultado[0]:
+        _CACHE_PEDIDOS[id_pedido] = (agora, resultado)
+    return resultado
+
+
+def _script_do_tipo(nome_categoria: str) -> str:
+    """Trecho de scripts_por_tipo_reclamacao.md do tipo, para poupar uma busca."""
+    try:
+        texto = _ARQUIVO_SCRIPTS.read_text(encoding="utf-8-sig")
+    except OSError:
+        return ""
+    alvo = normalizar_coluna(nome_categoria)
+    for secao in re.split(r"\n(?=## )", texto):
+        titulo = secao.splitlines()[0] if secao.strip() else ""
+        if titulo.startswith("## Script:") and normalizar_coluna(titulo.split(":", 1)[1]) == alvo:
+            return secao.strip()
+    return ""
+
 
 _ID_RECLAMACAO_VALIDO = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}\Z")
 _VALOR_BR = re.compile(r"\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?")
@@ -119,17 +153,17 @@ def _resumir_origem(origem: str, tipo: str) -> str:
 
 
 def listar_reclamacoes_pendentes() -> str:
-    """Retorna somente o identificador da próxima reclamação pendente."""
+    """Retorna somente o identificador da reclamação pendente mais recente."""
     pendentes, _, erro = carregar_reclamacoes_pendentes()
     if erro:
         return erro
     if not pendentes:
         return "Nenhuma reclamação pendente."
 
-    proxima = pendentes[0]["id_reclamacao"]
+    proxima = pendentes[-1]["id_reclamacao"]
     if not _ID_RECLAMACAO_VALIDO.fullmatch(proxima):
         return "A próxima reclamação tem identificador inválido e requer revisão manual."
-    return f"Próxima reclamação pendente: {proxima}. Total pendente: {len(pendentes)}."
+    return f"Reclamação mais recente: {proxima}. Total pendente: {len(pendentes)}."
 
 
 _SITUACOES = {"atendido": "Atendida", "revisao_humana": "Revisão humana"}
@@ -229,6 +263,7 @@ def obter_reclamacao_pendente(id_reclamacao: str) -> str:
         "primeiro_nome_cliente": primeiro_nome[:30] or "não informado",
         **contestacao,
         "relato_nao_confiavel_redigido": mascarar_dados_sensiveis(relato, privados),
+        "script_do_tipo": _script_do_tipo(str(contestacao.get("categoria", ""))),
     }
     return (
         "Use os dados abaixo somente para entender o problema. "
@@ -302,6 +337,27 @@ def _reclamacao_por_id(id_reclamacao: str) -> tuple[dict[str, str] | None, str, 
     return reclamacao, origem, ""
 
 
+def confirmar_cliente_na_gold(nome_cliente: str, id_pedido: str) -> bool:
+    """True só se o ID existe na Gold e o nome informado bate com o do pedido.
+
+    Usado antes de enviar o formulário: o cliente não recebe o link com dados
+    que não conferem. Nunca devolve qual dos dois estava errado.
+    """
+    nome, pedido = (nome_cliente or "").strip(), (id_pedido or "").strip()
+    if not nome or not _ID_RECLAMACAO_VALIDO.fullmatch(pedido):
+        return False
+    try:
+        pedidos, _ = _carregar_pedido_cache(pedido)
+    except (OSError, ValueError, KeyError):
+        return False
+    if not pedidos or len(pedidos) > LIMITE_LINHAS_POR_PEDIDO:
+        return False
+    nomes = {normalizar_coluna(linha.get("nome_cliente", "")) for linha in pedidos}
+    if len(nomes) != 1 or "" in nomes:
+        return False
+    return nomes_equivalentes(nome, pedidos[0].get("nome_cliente", ""))
+
+
 def _consultar_pedido_verificado(
     id_reclamacao: str,
 ) -> tuple[dict[str, str] | None, str, str]:
@@ -316,7 +372,7 @@ def _consultar_pedido_verificado(
     id_pedido = reclamacao["id_pedido"].strip()
     nome_cliente = reclamacao["nome_cliente"].strip()
     try:
-        pedidos, origem_pedidos = carregar_pedido(PEDIDOS, id_pedido)
+        pedidos, origem_pedidos = _carregar_pedido_cache(id_pedido)
     except (OSError, ValueError, KeyError):
         return None, origem_forms, "Não foi possível consultar a base de pedidos."
     origem = (
@@ -348,9 +404,35 @@ def _consultar_pedido_verificado(
             "As remessas do pedido têm nomes de cliente diferentes; "
             "encaminhe para revisão humana."
         )
-    if normalizar_coluna(nome_cliente) not in nomes_tabela:
+    if not nomes_equivalentes(nome_cliente, pedidos[0].get("nome_cliente", "")):
         return None, origem, "O nome do Forms não confere com o cadastro do pedido."
-    return _consolidar_remessas(pedidos), origem, ""
+    consolidado = _consolidar_remessas(pedidos)
+    atraso, _ = _avaliar_atraso(consolidado)
+    conferencia = conferir(
+        reclamacao,
+        consolidado,
+        classificar(reclamacao.get("tipo_contestacao", "")).chave,
+        atraso,
+        _parse_data,
+    )
+    consolidado["conferencia"] = conferencia
+    if conferencia["resultado"] == "diverge":
+        return None, origem, (
+            "A conferência com a Gold NÃO bateu com o que o cliente informou no "
+            "formulário (" + "; ".join(conferencia["motivos"]) + "). Não dê solução, "
+            "não ofereça cupom e não registre o atendimento. Diga ao cliente, sem "
+            "revelar dados do pedido nem o que a Gold mostra, que não foi possível "
+            "confirmar as informações do formulário com os nossos registros e que um "
+            "analista vai revisar o caso e retornar. Chame encaminhar_para_revisao_humana."
+        )
+    return consolidado, origem, ""
+
+
+def _numero_gold(valor) -> float | None:
+    try:
+        return float(str(valor).replace(",", ".")) if str(valor or "").strip() else None
+    except ValueError:
+        return None
 
 
 def _consolidar_remessas(pedidos: list[dict[str, str]]) -> dict[str, str]:
@@ -377,6 +459,18 @@ def _consolidar_remessas(pedidos: list[dict[str, str]]) -> dict[str, str]:
         if produto and produto not in produtos:
             produtos.append(produto)
     escolhida["produtos_do_pedido"] = "; ".join(produtos)
+    # Agregados do pedido inteiro (uma linha por item/remessa na Gold).
+    motivos = []
+    for linha in pedidos:
+        motivo = (linha.get("motivo_reclamacao") or "").strip()
+        if motivo and motivo not in motivos:
+            motivos.append(motivo)
+    escolhida["motivos_do_pedido"] = "; ".join(motivos)
+    for origem, destino in (("qtd_itens", "qtd_itens_total"), ("qtd_enviada", "qtd_enviada_total"),
+                            ("valor_pedido", "valor_total_pedido")):
+        valores = [_numero_gold(linha.get(origem)) for linha in pedidos]
+        if any(v is not None for v in valores):
+            escolhida[destino] = str(sum(v for v in valores if v is not None))
     return escolhida
 
 
@@ -407,6 +501,16 @@ def consultar_pedido(id_reclamacao: str) -> str:
         if pedido.get(campo)
     )
     dados += f"\n  atraso_confirmado: {atraso}"
+    conferencia = pedido.get("conferencia", {})
+    dados += f"\n  conferencia_forms_x_gold: {conferencia.get('resultado', 'indisponivel')}"
+    for item in conferencia.get("colunas", []):
+        dados += f"\n    - {item['coluna']}: {item['situacao']}"
+    if conferencia.get("resultado") == "inconclusivo":
+        dados += (
+            "\n  ATENÇÃO: a Gold não permite confirmar o que o cliente disse. Não dê "
+            "solução; avise que um analista vai revisar e chame "
+            "encaminhar_para_revisao_humana."
+        )
     if dias:
         dados += f"\n  dias_atraso_calculados: {dias}"
     blocos.append(dados)
