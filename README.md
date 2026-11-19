@@ -15,6 +15,7 @@ O cliente conta o problema no chat, preenche um formulário e recebe a solução
 ## Sumário
 
 - [O que é](#o-que-é)
+- [Interface](#interface)
 - [Como funciona](#como-funciona)
 - [Conferência com a tabela Gold](#conferência-com-a-tabela-gold)
 - [Tipos de contestação](#tipos-de-contestação)
@@ -41,6 +42,23 @@ Princípios do projeto:
 - **Nome e ID certos não bastam.** Se o tipo de contestação ou o relato não batem com o que a Gold registra, o agente não entrega solução nenhuma e encaminha o caso para um analista.
 - **O backend decide, o modelo escreve.** Classificação, conferência, faixa de cupom e registro são regras determinísticas em código. O modelo só redige a mensagem ao cliente.
 - **Nada fica guardado à toa.** A resposta do Forms é apagada da planilha quando o atendimento é concluído.
+
+## Interface
+
+O cliente atende tudo pelo navegador, sem instalar nada. As imagens abaixo usam dados fictícios.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/img/chat-1-inicio.png" alt="Tela inicial do chat com os três passos do atendimento"><br><sub><b>1. Início:</b> atalhos e o passo a passo do atendimento.</sub></td>
+    <td width="50%"><img src="docs/img/chat-2-dados.png" alt="Cartão para informar nome e ID do pedido"><br><sub><b>2. Seus dados:</b> nome e ID do pedido em um cartão, conferidos antes de enviar o formulário.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/img/chat-3-formulario.png" alt="Botão para abrir o formulário e cartão de acompanhamento"><br><sub><b>3. Formulário:</b> abre já preenchido; o chat acompanha o envio e fecha a aba sozinho.</sub></td>
+    <td width="50%"><img src="docs/img/chat-4-solucao.png" alt="Resposta com cartão de cupom e respostas rápidas"><br><sub><b>4. Solução:</b> resposta conferida com a Gold, cupom com botão de copiar e respostas rápidas.</sub></td>
+  </tr>
+</table>
+
+Os passos do topo são clicáveis: ao passar o mouse mostram o que cada etapa faz e, ao clicar, levam o cliente de volta ao ponto certo. Há tema claro e escuro, e o layout se adapta ao celular.
 
 ## Como funciona
 
