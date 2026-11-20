@@ -327,13 +327,22 @@ const $ = (id) => document.getElementById(id);
 const msgs = $("msgs"), dig = $("dig"), sug = $("sugestoes"), f = $("f"), t = $("t"), botao = $("enviar");
 const desce = $("desce"), tema = $("tema"), statusEl = $("status"), toastEl = $("toast"), cont = $("cont");
 const reduzido = matchMedia("(prefers-reduced-motion: reduce)").matches;
+/* Cada carregamento da página (inclusive F5) começa do zero: sessão nova, sem guardar nada. */
 let sessao;
-try { sessao = localStorage.getItem("sessao_chat"); } catch (e) {}
-if (!sessao) novaSessao();
+novaSessao();
 function novaSessao() {
   sessao = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()).replace(/[^A-Za-z0-9]/g, "");
-  try { localStorage.setItem("sessao_chat", sessao); } catch (e) {}
 }
+try { localStorage.removeItem("sessao_chat"); } catch (e) {}
+/* Ao atualizar ou fechar a página, encerra no servidor a conversa e a espera do formulário. */
+function cancelarSessaoAtual() {
+  try {
+    navigator.sendBeacon("/api/cancelar", new Blob([JSON.stringify({ sessao })], { type: "application/json" }));
+  } catch (e) {}
+}
+window.addEventListener("pagehide", cancelarSessaoAtual);
+/* Voltar pelo histórico pode restaurar a página antiga do cache: força o recomeço. */
+window.addEventListener("pageshow", (e) => { if (e.persisted) location.reload(); });
 
 /* ---------- tema e nova conversa ---------- */
 try { const s = localStorage.getItem("tema_chat"); if (s) document.documentElement.dataset.theme = s; } catch (e) {}
@@ -343,7 +352,12 @@ tema.addEventListener("click", () => {
   document.documentElement.dataset.theme = novo;
   try { localStorage.setItem("tema_chat", novo); } catch (e) {}
 });
-$("nova").addEventListener("click", () => { novaSessao(); location.reload(); });
+/* Encerra no servidor a conversa atual (espera do formulário e agente) antes de abrir outra. */
+function reiniciarConversa() {
+  try { if (espera) espera.abort(); } catch (e) {}
+  location.reload();  // o "pagehide" cancela a conversa atual e o recarregamento abre uma nova
+}
+$("nova").addEventListener("click", reiniciarConversa);
 
 function toast(texto) {
   toastEl.textContent = texto; toastEl.classList.add("on");
@@ -423,7 +437,7 @@ function esc(s) { return s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":
 function hora() { return new Date().toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }); }
 const ICONE_FORM = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>';
 const ICONE_CUPOM = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9a2 2 0 0 0 0 6v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3a2 2 0 0 1 0-6V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1z"/><path d="M13 5v2M13 17v2M13 11v2"/></svg>';
-const COD_CUPOM = /\b(DESCULPA5|FRETEZERO|ATRASO10|PRIORIDADE15|ESPECIAL20|[A-Z]{4,}\d{1,2})\b/g;
+const COD_CUPOM = /\b(EF-[A-Z]+\d{0,2}|[A-Z]{4,}\d{1,2})\b/g;
 
 function formatar(texto) {
   // URLs viram marcadores antes de procurar cupons, para nunca quebrar um link.
@@ -527,7 +541,7 @@ function respostasRapidas() {
   r.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
     const a = b.dataset.a;
     r.remove();
-    if (a === "novo") { novaSessao(); location.reload(); }
+    if (a === "novo") reiniciarConversa();
     else enviar(a === "ok" ? "Resolvido, obrigado!" : "Tenho uma dúvida sobre a solução.");
   }));
   msgs.insertBefore(r, dig);

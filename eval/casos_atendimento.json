@@ -31,9 +31,9 @@
         "PED-EVAL-001"
       ],
       "cupom_contem": [
-        "Cupom aprovado: ATRASO10",
+        "Cupom aprovado: EF-GARANTIA10",
         "10%",
-        "faixa 4 a 7 dias",
+        "faixa 3 a 4 dias",
         "validade: 30 dias"
       ],
       "cupom_nao_contem": []
@@ -74,7 +74,7 @@
       ],
       "cupom_nao_contem": [
         "Cupom aprovado",
-        "DESCULPA5"
+        "EF-CORTESIA5"
       ]
     },
     {
@@ -110,7 +110,7 @@
       ],
       "cupom_nao_contem": [
         "Cupom aprovado",
-        "DESCULPA5"
+        "EF-CORTESIA5"
       ]
     },
     {
@@ -139,7 +139,7 @@
       ],
       "cupom_nao_contem": [
         "Cupom aprovado",
-        "DESCULPA5"
+        "EF-CORTESIA5"
       ]
     },
     {
@@ -176,11 +176,11 @@
         "PED-EVAL-005"
       ],
       "cupom_contem": [
-        "Cupom aprovado: ATRASO10",
-        "faixa 4 a 7 dias"
+        "Cupom aprovado: EF-COMPROMISSO15",
+        "faixa 5 a 7 dias"
       ],
       "cupom_nao_contem": [
-        "DESCULPA5"
+        "EF-CORTESIA5"
       ]
     },
     {
@@ -212,12 +212,12 @@
         "PED-EVAL-006"
       ],
       "cupom_contem": [
-        "Cupom aprovado: ATRASO10",
-        "faixa 1 a 3 dias",
+        "Cupom aprovado: EF-GARANTIA10",
+        "faixa 2 dias",
         "muito irritado"
       ],
       "cupom_nao_contem": [
-        "DESCULPA5"
+        "EF-CORTESIA5"
       ],
       "cliente_muito_irritado": true
     },
@@ -265,8 +265,7 @@
         "PED-EVAL-007"
       ],
       "cupom_contem": [
-        "Cupom aprovado: DESCULPA5",
-        "FRETEZERO"
+        "Cupom aprovado: EF-CORTESIA5"
       ],
       "cupom_nao_contem": []
     },
@@ -303,7 +302,7 @@
       ],
       "cupom_nao_contem": [
         "Cupom aprovado",
-        "DESCULPA5"
+        "EF-CORTESIA5"
       ],
       "carregamentos_pedido_esperados": 0
     },
@@ -336,7 +335,7 @@
       ],
       "cupom_nao_contem": [
         "Cupom aprovado",
-        "DESCULPA5"
+        "EF-CORTESIA5"
       ]
     },
     {
@@ -369,8 +368,7 @@
         "PED-EVAL-010"
       ],
       "cupom_contem": [
-        "Cupom aprovado: DESCULPA5",
-        "FRETEZERO"
+        "Cupom aprovado: EF-CORTESIA5"
       ],
       "cupom_nao_contem": []
     },
@@ -417,8 +415,7 @@
         "atraso_confirmado: sim"
       ],
       "cupom_contem": [
-        "Cupom aprovado: DESCULPA5",
-        "FRETEZERO"
+        "Cupom aprovado: EF-GARANTIA10"
       ],
       "cupom_nao_contem": []
     },
@@ -460,7 +457,7 @@
       ],
       "cupom_nao_contem": [
         "Cupom aprovado",
-        "DESCULPA5"
+        "EF-CORTESIA5"
       ]
     },
     {
@@ -503,7 +500,7 @@
       ],
       "cupom_nao_contem": [
         "Cupom aprovado",
-        "DESCULPA5"
+        "EF-CORTESIA5"
       ]
     },
     {
@@ -537,12 +534,64 @@
       ],
       "cupom_nao_contem": [
         "Cupom aprovado",
-        "DESCULPA5"
+        "EF-CORTESIA5"
       ],
       "carregamentos_pedido_esperados": 0
     },
     {
-      "id": "atraso_8_dias_recebe_prioridade15",
+      "id": "atraso_1_dia_recebe_frete_gratis",
+      "reclamacao": {
+        "id_reclamacao": "EVAL-011",
+        "id_pedido": "PED-EVAL-011",
+        "nome_cliente": "Kátia Prado",
+        "data_envio": "2026-11-16 11:43:16",
+        "tipo_contestacao": "Atraso na entrega",
+        "relato": "O pedido não chegou.",
+        "data_compra": "2026-11-01 10:00:00",
+        "codigo_transacao": "E2E-SEGREDO-0011",
+        "valor_pedido": "R$ 1.234,56",
+        "email_contato": "katia.eval@example.test"
+      },
+      "pedidos": [
+        {
+          "id_pedido": "PED-EVAL-011",
+          "nome_cliente": "Kátia Prado",
+          "status_pedido": "Em trânsito",
+          "dias_atraso": "1"
+        }
+      ],
+      "cupom": {
+        "codigo": "EVAL10",
+        "desconto": "10%"
+      },
+      "relato_contem": [
+        "\"tipo_contestacao\": \"Atraso na entrega\"",
+        "\"pode_gerar_cupom\": \"sim\"",
+        "\"data_compra_informada\": \"2026-11-01\"",
+        "\"valor_pedido_informado\": \"1234.56\"",
+        "\"codigo_transacao_informado\": \"sim\""
+      ],
+      "relato_nao_contem": [
+        "E2E-SEGREDO-0011",
+        "katia.eval@example.test",
+        "inconsistencias"
+      ],
+      "consulta_contem": [
+        "Pedido confirmado",
+        "atraso_confirmado: sim"
+      ],
+      "cupom_contem": [
+        "Cupom aprovado: EF-FRETE",
+        "frete grátis",
+        "faixa 1 dia",
+        "validade: 30 dias"
+      ],
+      "cupom_nao_contem": [
+        "EF-CORTESIA5"
+      ]
+    },
+    {
+      "id": "atraso_8_dias_recebe_prioridade20",
       "reclamacao": {
         "id_reclamacao": "EVAL-ATRASO_8_DIA",
         "id_pedido": "PED-EVAL-006",
@@ -570,16 +619,16 @@
         "PED-EVAL-006"
       ],
       "cupom_contem": [
-        "Cupom aprovado: PRIORIDADE15",
+        "Cupom aprovado: EF-PRIORIDADE20",
         "validade: 45 dias"
       ],
       "cupom_nao_contem": [
-        "ATRASO10"
+        "EF-COMPROMISSO15"
       ],
       "cliente_muito_irritado": false
     },
     {
-      "id": "atraso_longo_recebe_especial20",
+      "id": "atraso_longo_recebe_premium25",
       "reclamacao": {
         "id_reclamacao": "EVAL-ATRASO_LONGO",
         "id_pedido": "PED-EVAL-006",
@@ -607,7 +656,7 @@
         "PED-EVAL-006"
       ],
       "cupom_contem": [
-        "Cupom aprovado: ESPECIAL20",
+        "Cupom aprovado: EF-PREMIUM25",
         "reembolso integral",
         "validade: 60 dias"
       ],
@@ -615,7 +664,7 @@
       "cliente_muito_irritado": false
     },
     {
-      "id": "irritado_nao_sobe_faixa_acima_da_primeira",
+      "id": "irritado_nao_sobe_faixa_alem_de_garantia10",
       "reclamacao": {
         "id_reclamacao": "EVAL-IRRITADO_NAO",
         "id_pedido": "PED-EVAL-006",
@@ -643,11 +692,11 @@
         "PED-EVAL-006"
       ],
       "cupom_contem": [
-        "Cupom aprovado: PRIORIDADE15"
+        "Cupom aprovado: EF-PRIORIDADE20"
       ],
       "cupom_nao_contem": [
         "muito irritado",
-        "ESPECIAL20"
+        "EF-PREMIUM25"
       ],
       "cliente_muito_irritado": true
     },
@@ -878,7 +927,7 @@
         "codigo": "EVAL10",
         "desconto": "10%"
       },
-      "cupom_oferecido": "DESCULPA5",
+      "cupom_oferecido": "EF-GARANTIA10",
       "resultado_contem": [
         "Atendimento registrado"
       ],
@@ -887,7 +936,7 @@
         "PED-EVAL-R-001",
         "Em trânsito",
         "sim",
-        "DESCULPA5"
+        "EF-GARANTIA10"
       ],
       "arquivo_nao_contem": [
         "Lia Teste",
@@ -917,7 +966,7 @@
         "codigo": "",
         "desconto": ""
       },
-      "cupom_oferecido": "ESPECIAL20",
+      "cupom_oferecido": "EF-PREMIUM25",
       "resultado_contem": [
         "não corresponde à faixa de atraso"
       ],
@@ -1049,7 +1098,7 @@
         "codigo": "EVAL10",
         "desconto": "10%"
       },
-      "cupom_oferecido": "ATRASO10",
+      "cupom_oferecido": "EF-GARANTIA10",
       "resultado_contem": [
         "não corresponde à faixa de atraso"
       ],

@@ -7,6 +7,7 @@ nova, aciona o agente de novo. Assim o link aparece na hora para o cliente.
 
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote, urlsplit
 
 from google.adk.tools import ToolContext
@@ -78,7 +79,16 @@ def enviar_link_formulario(
         )
     from .consultar_dados import confirmar_cliente_na_gold  # evita import circular
 
-    if not confirmar_cliente_na_gold(nome, pedido):
+    # A leitura da planilha (~2 s) não depende da conferência na Gold: roda junto.
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        leitura_forms = pool.submit(carregar_reclamacoes, True)
+        confere = confirmar_cliente_na_gold(nome, pedido)
+        if confere:
+            try:
+                reclamacoes, _ = leitura_forms.result()
+            except (OSError, ValueError, KeyError):
+                reclamacoes = []
+    if not confere:
         tool_context.state[_CHAVE_TENTATIVAS] = tentativas + 1
         return (
             "Não foi possível confirmar o nome e o ID do pedido juntos. NÃO envie o "
@@ -89,10 +99,6 @@ def enviar_link_formulario(
         )
 
     tool_context.state[_CHAVE_TENTATIVAS] = 0
-    try:
-        reclamacoes, _ = carregar_reclamacoes(forcar=True)
-    except (OSError, ValueError, KeyError):
-        reclamacoes = []
     tool_context.state[CHAVE_BASE] = [r["id_reclamacao"] for r in reclamacoes]
     return (
         f"Dados confirmados. Link do formulário: {_link_preenchido(link, nome, pedido)}. "

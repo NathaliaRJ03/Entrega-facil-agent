@@ -580,11 +580,10 @@ def avaliar_reservas() -> tuple[int, int]:
 
     import httpx
     from google.adk.models import BaseLlm, LlmRequest, LlmResponse
-    from google.adk.integrations.openai import OpenAIGenerateContentConfig
     from google.genai import errors, types
 
     from agente_triagem import config_agent
-    from agente_triagem.config_thinking import ESFORCO_RESERVAS, GENERATION_CONFIG
+    from agente_triagem.config_thinking import GENERATION_CONFIG
 
     class ModeloFalso(BaseLlm):
         falha: str = ""
@@ -596,6 +595,10 @@ def avaliar_reservas() -> tuple[int, int]:
                 raise errors.ServerError(503, {"error": {"message": "eval"}})
             if self.falha == "conexao":
                 raise httpx.ConnectError("eval")
+            if self.falha == "intermitente" and len(self.recebidas) <= 1:
+                raise errors.ServerError(503, {"error": {"message": "eval"}})
+            if self.falha == "lento":
+                await asyncio.sleep(5)
             if self.falha == "400":
                 raise errors.ClientError(400, {"error": {"message": "eval"}})
             yield LlmResponse(
@@ -622,26 +625,28 @@ def avaliar_reservas() -> tuple[int, int]:
             return f"erro:{type(erro).__name__}"
         return ""
 
-    def caso_conversao() -> tuple[bool, str]:
-        Reserva = config_agent.com_esforco_proprio(ModeloFalso, OpenAIGenerateContentConfig)
-        reserva = Reserva(model="reserva", recebidas=[])
-        resposta = asyncio.run(quem_responde(ModeloFalso(model="primario", falha="503"), reserva))
-        config = reserva.recebidas[0] if reserva.recebidas else None
-        problemas = []
-        if resposta != "reserva":
-            problemas.append(f"respondeu {resposta!r}")
-        if not isinstance(config, OpenAIGenerateContentConfig):
-            problemas.append("a reserva não recebeu a configuração do próprio provedor")
-        else:
-            if config.effort != ESFORCO_RESERVAS:
-                problemas.append(f"effort {config.effort!r}")
-            if config.thinking_config is not None or config.temperature is not None:
-                problemas.append("thinking_config ou temperatura do Gemini vazou")
-            if config.system_instruction != "instrução de eval":
-                problemas.append("a instrução do agente se perdeu na conversão")
-            if config.max_output_tokens != GENERATION_CONFIG.max_output_tokens:
-                problemas.append("o limite de tokens se perdeu na conversão")
-        return not problemas, "; ".join(problemas)
+    def caso_corrida() -> tuple[bool, str]:
+        """Principal lento perde para a reserva, que entra após HEDGE_SEGUNDOS."""
+        anterior = config_agent.HEDGE_SEGUNDOS
+        config_agent.HEDGE_SEGUNDOS = 0.1
+        try:
+            resposta = asyncio.run(quem_responde(
+                ModeloFalso(model="primario", falha="lento"), ModeloFalso(model="reserva")))
+        finally:
+            config_agent.HEDGE_SEGUNDOS = anterior
+        return esperar(resposta, "reserva")
+
+    def caso_insistencia() -> tuple[bool, str]:
+        """Todos falham na 1ª rodada; a cadeia recomeça e o 1º modelo responde."""
+        anterior = config_agent.PAUSA_ENTRE_RODADAS_S
+        config_agent.PAUSA_ENTRE_RODADAS_S = 0.01
+        try:
+            resposta = asyncio.run(quem_responde(
+                ModeloFalso(model="a", falha="intermitente", recebidas=[]),
+                ModeloFalso(model="b", falha="intermitente", recebidas=[])))
+        finally:
+            config_agent.PAUSA_ENTRE_RODADAS_S = anterior
+        return esperar(resposta, "a")
 
     def caso_resposta_controlada() -> tuple[bool, str]:
         contexto = SimpleNamespace(invocation_id="EVAL-RESERVA")
@@ -676,11 +681,12 @@ def avaliar_reservas() -> tuple[int, int]:
             asyncio.run(quem_responde(
                 ModeloFalso(model="primario", falha="conexao"), ModeloFalso(model="reserva"))),
             "reserva")),
-        ("erro_400_nao_troca_de_modelo", lambda: esperar(
+        ("erro_400_passa_para_a_reserva", lambda: esperar(
             asyncio.run(quem_responde(
                 ModeloFalso(model="primario", falha="400"), ModeloFalso(model="reserva"))),
-            "erro:ClientError")),
-        ("reserva_recebe_configuracao_do_proprio_provedor", caso_conversao),
+            "reserva")),
+        ("principal_lento_perde_a_corrida_para_a_reserva", caso_corrida),
+        ("todos_falham_e_a_cadeia_recomeca_ate_responder", caso_insistencia),
         ("falha_geral_vira_resposta_controlada", caso_resposta_controlada),
     ]
 

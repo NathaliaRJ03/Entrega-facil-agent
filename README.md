@@ -138,12 +138,14 @@ O código e a faixa são calculados pela ferramenta `oferecer_cupom_atraso` a pa
 
 | Atraso | Compensação | Código | Validade |
 |---|---|---|---|
-| 1 a 3 dias | 5% de desconto ou frete grátis | `DESCULPA5` ou `FRETEZERO` | 30 dias |
-| 4 a 7 dias | 10% de desconto | `ATRASO10` | 30 dias |
-| 8 a 14 dias | 15% + prioridade de envio | `PRIORIDADE15` | 45 dias |
-| 15 dias ou mais | 20% ou cancelamento com reembolso integral | `ESPECIAL20` | 60 dias |
+| 1 dia | Frete grátis | `EF-FRETE` | 30 dias |
+| 2 dias | 5% de desconto | `EF-CORTESIA5` | 30 dias |
+| 3 a 4 dias | 10% de desconto | `EF-GARANTIA10` | 30 dias |
+| 5 a 7 dias | 15% de desconto | `EF-COMPROMISSO15` | 45 dias |
+| 8 a 14 dias | 20% + prioridade no atendimento e no envio | `EF-PRIORIDADE20` | 45 dias |
+| 15 dias ou mais | 25% (ou cancelamento com reembolso, via revisão humana) | `EF-PREMIUM25` | 60 dias |
 
-Cliente muito irritado com atraso de 1 a 3 dias pode subir para a faixa de 10%. A regra completa está em [knowledge_base/politica_cupons_atraso.md](knowledge_base/politica_cupons_atraso.md).
+Cada faixa tem um modelo de resposta próprio, devolvido pela ferramenta junto com o cupom. Cliente muito irritado com atraso de 1 ou 2 dias pode subir para a faixa de 10%. A regra completa está em [knowledge_base/politica_cupons_atraso.md](knowledge_base/politica_cupons_atraso.md).
 
 ## Segurança e privacidade
 
@@ -159,14 +161,14 @@ Cliente muito irritado com atraso de 1 a 3 dias pode subir para a faixa de 10%. 
 
 ```text
 Cliente ── Chat web (FastAPI + HTML) ──┐
-                                       ├── Agente ADK (Gemini + reservas)
+                                       ├── Agente ADK (Gemini)
 adk web (desenvolvimento) ─────────────┘        │
                                                 ├── tools/ ........ ferramentas e regras
                                                 ├── integrations/ . Forms/Sheets, Databricks, proteção de dados
                                                 └── retriever/ .... busca BM25 na base de conhecimento
 ```
 
-- **Modelos:** Gemini como principal, outro Gemini e OpenAI como reservas em cadeia, com *failover* em falhas de rede, cota e erros 5xx. Se todos falharem, o cliente recebe uma mensagem segura e o caso vai para revisão humana.
+- **Modelos:** só Gemini (Google), em cadeia de roteamento definida por `GEMINI_MODELOS`. Se o modelo principal passa de `MODELO_HEDGE_SEGUNDOS` (3 s) sem responder, o próximo entra em paralelo e vale a primeira resposta; cada modelo é chamado até duas vezes e, em qualquer erro, o agente passa para o próximo; se todos falharem, a cadeia recomeça até algum responder. Se todos falharem, o cliente recebe uma mensagem segura e o caso vai para revisão humana.
 - **Chat web:** servidor FastAPI que entrega só o texto escrito ao cliente (as chamadas de ferramenta ficam no servidor), com indicador de "digitando", passos do atendimento, botão do formulário e cartão de cupom.
 - **Espera do formulário no servidor:** o agente envia o link e encerra a resposta; o servidor confere a planilha e aciona o agente quando o formulário chega. Assim o link aparece na hora.
 - **Cache de curta duração:** a planilha do Forms (20 s) e a consulta à Gold (60 s) são reaproveitadas entre as ferramentas de um mesmo atendimento.
@@ -246,8 +248,9 @@ Todas as variáveis ficam no `.env` (modelo em [.env.example](.env.example)).
 | Variável | Para que serve |
 |---|---|
 | `GOOGLE_API_KEY` | Chave do Gemini |
-| `GEMINI_MODEL`, `GEMINI_MODEL_RESERVA` | Modelo principal e primeira reserva |
-| `OPENAI_API_KEY`, `OPENAI_MODEL` | Segunda reserva (opcional) |
+| `GEMINI_MODELOS` | Modelos Gemini separados por vírgula, do principal às reservas (padrão `gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-3.6-flash`) |
+| `MODELO_HEDGE_SEGUNDOS` | Tempo até a reserva entrar em paralelo (`0` desliga) |
+| `MODELO_INSISTENCIA_SEGUNDOS` | Se todos os modelos falharem, a cadeia recomeça até algum responder, por no máximo este tempo (`0` = sem limite; padrão 300) |
 | `FORMS_URL` | Link público do Google Forms enviado ao cliente |
 | `FORMS_CSV_URL` | Leitura da planilha de respostas (CSV exportado, em tempo real) |
 | `FORMS_SHEET_ID`, `FORMS_SHEET_ABA` | Planilha de respostas, para ler e apagar linhas via API |

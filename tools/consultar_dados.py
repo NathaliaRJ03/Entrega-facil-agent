@@ -520,13 +520,15 @@ def consultar_pedido(id_reclamacao: str) -> str:
 def oferecer_cupom_atraso(id_reclamacao: str, cliente_muito_irritado: bool = False) -> str:
     """Confirma o atraso e retorna o cupom da faixa da tabela progressiva.
 
-    Faixas: 1-3 dias DESCULPA5/FRETEZERO, 4-7 ATRASO10, 8-14 PRIORIDADE15,
-    15+ ESPECIAL20. O código é calculado aqui; nunca escolha outro.
+    Faixas: 1 dia EF-FRETE, 2 dias EF-CORTESIA5, 3-4 EF-GARANTIA10, 5-7
+    EF-COMPROMISSO15, 8-14 EF-PRIORIDADE20, 15+ EF-PREMIUM25. O código é
+    calculado aqui; nunca escolha outro.
 
     Args:
         id_reclamacao: ID da resposta do Forms que contém nome e ID do pedido.
         cliente_muito_irritado: True só se o relato mostrar o cliente
-            extremamente irritado. Na faixa de 1 a 3 dias, sobe para 10%.
+            extremamente irritado. Com atraso de 1 ou 2 dias, sobe para 10%
+            (EF-GARANTIA10).
     """
     pedido, origem, erro = _consultar_pedido_verificado(id_reclamacao)
     if erro:
@@ -557,4 +559,8 @@ def oferecer_cupom_atraso(id_reclamacao: str, cliente_muito_irritado: bool = Fal
     if faixa.observacao:
         linhas.append(faixa.observacao)
     linhas.append("Peça desculpas antes de apresentar o cupom.")
+    linhas.append(
+        "Modelo de resposta desta faixa (mantenha código, benefício e validade; "
+        f"adapte só a saudação ao contexto): \"{faixa.resposta_modelo()}\""
+    )
     return "\n".join(linhas)

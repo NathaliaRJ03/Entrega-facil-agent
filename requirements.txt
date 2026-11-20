@@ -1,4 +1,4 @@
-google-adk[openai]
+google-adk
 rank-bm25
 tzdata
 

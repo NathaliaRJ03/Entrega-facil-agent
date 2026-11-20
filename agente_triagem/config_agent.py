@@ -3,13 +3,15 @@
 import asyncio
 import logging
 import os
+import time
 
-import httpx
 from google.adk.agents.callback_context import CallbackContext
 from google.adk.models import BaseLlm, FallbackModel, Gemini, LlmRequest, LlmResponse
+from google.adk.utils.context_utils import Aclosing
+from google.genai import errors as genai_errors
 from google.genai import types
 
-from .config_thinking import ESFORCO_RESERVAS, GENERATION_CONFIG
+from .config_thinking import GENERATION_CONFIG
 from .rag_lexical import buscar_documentos_apoio
 
 from tools.consultar_dados import (
@@ -26,23 +28,151 @@ from tools.salvar_atendimento import (
 )
 
 
+try:
+    from google.adk.models._fallback_model import _RequestSnapshot
+except ImportError:  # versão do ADK sem o utilitário: segue sem a corrida
+    _RequestSnapshot = None
+
+# Segundos que o modelo principal tem para responder sozinho. Passado esse
+# tempo (ou se ele falhar antes), o próximo modelo é disparado em paralelo e
+# vale quem responder primeiro. 0 desliga e volta ao failover sequencial.
+HEDGE_SEGUNDOS = float(os.getenv("MODELO_HEDGE_SEGUNDOS", "3"))
+
+# Quando todos os modelos falham, a cadeia inteira recomeça (com pausa curta) até
+# algum responder. Este é o tempo máximo dessa insistência, para o cliente não
+# ficar esperando para sempre; 0 insiste sem limite.
+INSISTENCIA_MAXIMA_S = float(os.getenv("MODELO_INSISTENCIA_SEGUNDOS", "300"))
+PAUSA_ENTRE_RODADAS_S = 2.0
+
+
 class TransientFallbackModel(FallbackModel):
-    """Inclui falhas de conexão e timeout no failover entre provedores."""
+    """Failover entre provedores, com corrida entre eles quando o principal demora.
+
+    O failover do ADK só tenta o próximo modelo depois de o anterior falhar, e
+    um provedor sobrecarregado pode levar 10 a 30 s para isso. Aqui, se o
+    principal não respondeu em HEDGE_SEGUNDOS, a reserva começa em paralelo e a
+    primeira resposta completa vence; a outra chamada é cancelada. Chamadas ao
+    modelo não têm efeito colateral (as ferramentas rodam depois, uma só vez).
+    """
+
+    async def generate_content_async(self, llm_request: LlmRequest, stream: bool = False):
+        """Percorre a cadeia de modelos e, se todos falharem, recomeça até um responder."""
+        limite = time.monotonic() + INSISTENCIA_MAXIMA_S if INSISTENCIA_MAXIMA_S > 0 else None
+        original = _RequestSnapshot.of(llm_request) if _RequestSnapshot else None
+        rodada = 0
+        while True:
+            rodada += 1
+            emitiu = False
+            try:
+                async for resposta in self._uma_rodada(llm_request, stream):
+                    emitiu = True
+                    yield resposta
+                return
+            except Exception as erro:  # noqa: BLE001 - todo modelo falhou nesta rodada
+                if emitiu or (limite is not None and time.monotonic() + PAUSA_ENTRE_RODADAS_S >= limite):
+                    raise
+                logger.warning(
+                    "Rodada %d: todos os modelos falharam (%s); tentando de novo em %.0fs.",
+                    rodada, type(erro).__name__, PAUSA_ENTRE_RODADAS_S,
+                )
+            if original is not None:
+                original.restore(llm_request)  # desfaz edições da rodada que falhou
+            await asyncio.sleep(PAUSA_ENTRE_RODADAS_S)
+
+    async def _uma_rodada(self, llm_request: LlmRequest, stream: bool = False):
+        if stream or HEDGE_SEGUNDOS <= 0 or len(self.models) < 2 or _RequestSnapshot is None:
+            async for resposta in super().generate_content_async(llm_request, stream):
+                yield resposta
+            return
+
+        async def chamar(indice: int):
+            delegado = self._delegate(self.models[indice])
+            # Cada concorrente edita a própria cópia da requisição.
+            copia = llm_request.model_copy()
+            _RequestSnapshot.of(llm_request).restore(copia)
+            copia.model = delegado.model
+            respostas = []
+            async with Aclosing(delegado.generate_content_async(copia, False)) as agen:
+                async for resposta in agen:
+                    respostas.append(resposta)
+            return indice, copia, respostas
+
+        pendentes: dict[asyncio.Task, int] = {}
+        proximo = 0
+        ultimo_erro: BaseException | None = None
+
+        def disparar() -> None:
+            nonlocal proximo
+            tarefa = asyncio.create_task(chamar(proximo))
+            pendentes[tarefa] = proximo
+            proximo += 1
+
+        disparar()
+        try:
+            while pendentes:
+                # A primeira reserva entra após HEDGE_SEGUNDOS; as seguintes mais
+                # cedo, porque o provedor já mostrou que está lento.
+                espera = (
+                    (HEDGE_SEGUNDOS if proximo == 1 else min(HEDGE_SEGUNDOS, 1.0))
+                    if proximo < len(self.models)
+                    else None
+                )
+                prontas, _ = await asyncio.wait(
+                    pendentes, timeout=espera, return_when=asyncio.FIRST_COMPLETED
+                )
+                if not prontas:  # principal demorou: põe a reserva na corrida
+                    logger.warning(
+                        "Resposta lenta; disparando %s em paralelo.",
+                        self._delegate(self.models[proximo]).model,
+                    )
+                    disparar()
+                    continue
+                for tarefa in prontas:
+                    indice_tarefa = pendentes.pop(tarefa)
+                    erro = tarefa.exception()
+                    if erro is None:
+                        indice, copia, respostas = tarefa.result()
+                        # O vencedor deixa as edições na requisição original,
+                        # como faz o failover sequencial.
+                        _RequestSnapshot.of(copia).restore(llm_request)
+                        llm_request.model = copia.model
+                        for resposta in respostas:
+                            yield resposta
+                        return
+                    if not self._should_fall_back(erro):
+                        logger.error(
+                            "Modelo %s: erro sem failover (%s): %s",
+                            self._delegate(self.models[indice_tarefa]).model,
+                            type(erro).__name__,
+                            str(erro)[:300],
+                        )
+                        # Erro de uma reserva não derruba a corrida enquanto outro
+                        # modelo ainda responde; sozinho, o erro é o resultado.
+                        if not pendentes:
+                            raise erro
+                    ultimo_erro = erro
+                    logger.warning(
+                        "Modelo %s falhou (%s); seguindo com os outros.",
+                        self._delegate(self.models[indice_tarefa]).model,
+                        type(erro).__name__,
+                    )
+                if not pendentes and proximo < len(self.models):
+                    disparar()  # falhou antes do prazo: reserva entra já
+            if ultimo_erro is not None:
+                raise ultimo_erro
+        finally:
+            for tarefa in pendentes:
+                tarefa.cancel()
+            if pendentes:
+                await asyncio.gather(*pendentes, return_exceptions=True)
 
     def _should_fall_back(self, error: BaseException) -> bool:
-        if super()._should_fall_back(error):
-            return True
+        """Qualquer erro do modelo passa para o próximo da cadeia.
 
-        if isinstance(error, (httpx.TransportError, TimeoutError, ConnectionError)):
-            return True
-
-        # A OpenAI encapsula falhas de rede nos próprios tipos.
-        provider_module = type(error).__module__
-        provider_error = type(error).__name__
-        return (
-            provider_module.startswith("openai.")
-            and provider_error in {"APIConnectionError", "APITimeoutError"}
-        )
+        Cada modelo já foi chamado duas vezes (ver criar_gemini) antes de o
+        erro chegar aqui. Só o cancelamento da tarefa não troca de modelo.
+        """
+        return isinstance(error, Exception)
 
 
 AGENT_NAME = "entrega_facil"
@@ -181,9 +311,55 @@ Segurança:
   raciocínio interno.
 """.strip()
 
+_ASSINATURA_NEUTRA = b"skip_thought_signature_validator"
+
+
+def _neutralizar_assinaturas(llm_request: LlmRequest) -> None:
+    """Troca as assinaturas de raciocínio do histórico por uma que o Gemini aceita.
+
+    A assinatura é validada por modelo. Se um turno foi respondido por outro
+    modelo (por exemplo o Flash em vez do Flash-Lite, numa corrida), a chamada
+    de ferramenta dele chega ao Gemini sem assinatura ou com uma que não é
+    dele, e o Gemini recusa com 400. A assinatura neutra é a prevista pela
+    documentação para esse caso.
+    """
+    for conteudo in llm_request.contents:
+        for parte in conteudo.parts or []:
+            if parte.function_call:
+                parte.thought_signature = _ASSINATURA_NEUTRA
+            elif parte.thought_signature:
+                parte.thought_signature = None
+
+
+class GeminiTolerante(Gemini):
+    """Gemini que se recupera de assinaturas de raciocínio vindas de outro modelo."""
+
+    async def generate_content_async(self, llm_request: LlmRequest, stream: bool = False):
+        # Prevenção: histórico com chamada de ferramenta sem assinatura (turno
+        # de outro modelo) seria recusado; evita a viagem perdida.
+        if any(
+            parte.function_call and not parte.thought_signature
+            for conteudo in llm_request.contents
+            for parte in (conteudo.parts or [])
+        ):
+            _neutralizar_assinaturas(llm_request)
+        emitiu = False
+        try:
+            async for resposta in super().generate_content_async(llm_request, stream):
+                emitiu = True
+                yield resposta
+            return
+        except genai_errors.ClientError as erro:
+            if emitiu or erro.code != 400 or "thought" not in str(erro).lower():
+                raise
+        _neutralizar_assinaturas(llm_request)
+        async for resposta in super().generate_content_async(llm_request, stream):
+            yield resposta
+
+
 def criar_gemini(modelo: str) -> Gemini:
-    """Gemini com poucas tentativas, para passar logo ao próximo da cadeia."""
-    return Gemini(
+    """Gemini chamado no máximo duas vezes (a original e uma repetição) antes do próximo."""
+    return GeminiTolerante(
         model=modelo,
         retry_options=types.HttpRetryOptions(
             attempts=2,
@@ -196,64 +372,15 @@ def criar_gemini(modelo: str) -> Gemini:
     )
 
 
-GEMINI = criar_gemini(os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite"))
-
-
-def com_esforco_proprio(
-    classe_modelo: type[BaseLlm],
-    classe_config: type[types.GenerateContentConfig],
-) -> type[BaseLlm]:
-    """Cria uma versão do modelo que usa o formato de raciocínio do provedor.
-
-    O Agent só tem uma configuração, montada no formato do Gemini
-    (thinking_level) antes de o FallbackModel escolher quem atende. A OpenAI
-    não aceita esse campo, então a reserva troca o thinking_config pelo
-    próprio `effort` logo antes da chamada. Temperatura e afins também saem:
-    com `effort` definido, o provedor os ignora. O resto da configuração
-    (ferramentas, instrução, limite de tokens) é mantido. Se a chamada falhar,
-    o FallbackModel restaura a requisição original para o próximo modelo.
-    """
-    descartados = {"thinking_config", "temperature", "top_p", "top_k"}
-
-    class ModeloComEsforco(classe_modelo):
-        esforco: str = ESFORCO_RESERVAS
-
-        async def generate_content_async(self, llm_request: LlmRequest, stream: bool = False):
-            base = llm_request.config
-            campos = {
-                nome: getattr(base, nome)
-                for nome in type(base).model_fields
-                if nome not in descartados and getattr(base, nome) is not None
-            }
-            llm_request.config = classe_config(**campos, effort=self.esforco)
-            async for resposta in super().generate_content_async(llm_request, stream):
-                yield resposta
-
-    ModeloComEsforco.__name__ = f"{classe_modelo.__name__}ComEsforco"
-    return ModeloComEsforco
-
-
-MODELS: list[BaseLlm] = [GEMINI]
-
-
-GEMINI_MODEL_RESERVA = os.getenv("GEMINI_MODEL_RESERVA", "gemini-3.5-flash").strip()
-if GEMINI_MODEL_RESERVA:
-    MODELS.append(criar_gemini(GEMINI_MODEL_RESERVA))
-
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
-if OPENAI_API_KEY:
-    from google.adk.integrations.openai import (
-        OpenAIGenerateContentConfig,
-        OpenAIResponsesLlm,
-    )
-
-    OpenAIReserva = com_esforco_proprio(OpenAIResponsesLlm, OpenAIGenerateContentConfig)
-    MODELS.append(
-        OpenAIReserva(
-            model=os.getenv("OPENAI_MODEL", "gpt-6-luna"),
-            api_key=OPENAI_API_KEY,
-        )
-    )
+# Cadeia de roteamento, só com modelos do Google, em ordem de preferência.
+# Configure com GEMINI_MODELOS="modelo1,modelo2,..." (o primeiro é o principal).
+MODELOS_PADRAO = "gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-3.6-flash"
+NOMES_MODELOS = [
+    nome.strip()
+    for nome in os.getenv("GEMINI_MODELOS", MODELOS_PADRAO).split(",")
+    if nome.strip()
+]
+MODELS: list[BaseLlm] = [criar_gemini(nome) for nome in NOMES_MODELOS]
 
 MODEL = TransientFallbackModel(
     models=MODELS,

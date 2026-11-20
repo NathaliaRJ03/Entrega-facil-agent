@@ -30,15 +30,25 @@ from google.genai import types  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
 
 from agente_triagem.agent import root_agent  # noqa: E402
+from integrations.contratos import PEDIDOS  # noqa: E402
+from integrations.databricks import aquecer_conexao  # noqa: E402
 from tools.formulario import CHAVE_BASE, ids_novos  # noqa: E402
 
 PAGINA = Path(__file__).with_name("index.html")
 APP_NAME = "entrega_facil_chat"
 PREFIXO_SISTEMA = "[Sistema]"
 ESPERA_MAXIMA_S = float(os.getenv("FORMS_ESPERA_SEGUNDOS", "900"))
-INTERVALO_S = float(os.getenv("FORMS_INTERVALO_SEGUNDOS", "3"))
+# Cada conferência da planilha já leva ~2 s para baixar; esperar mais 3 s entre
+# elas atrasava a resposta ao cliente em até 6 s depois do envio do formulário.
+INTERVALO_S = float(os.getenv("FORMS_INTERVALO_SEGUNDOS", "0.5"))
 
 app = FastAPI(title="Chat Entrega Fácil")
+
+
+@app.on_event("startup")
+async def aquecer() -> None:
+    """Abre a conexão com a Gold antes do primeiro cliente (poupa 2 a 5 s)."""
+    asyncio.create_task(asyncio.to_thread(aquecer_conexao, PEDIDOS))
 sessoes = InMemorySessionService()
 runner = Runner(app_name=APP_NAME, agent=root_agent, session_service=sessoes)
 
@@ -50,6 +60,10 @@ class Mensagem(BaseModel):
 
 class Sessao(BaseModel):
     sessao: str = Field(min_length=8, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+
+
+# Conversas encerradas pelo cliente ao iniciar outra: nada mais roda nelas.
+canceladas: set[str] = set()
 
 
 def _linha(dados: dict) -> str:
@@ -70,6 +84,8 @@ async def _rodar_agente(sessao: str, texto: str, state_delta: dict | None = None
         async for evento in runner.run_async(
             user_id=sessao, session_id=sessao, new_message=entrada, state_delta=state_delta
         ):
+            if sessao in canceladas:
+                return
             if evento.partial or not evento.content or evento.author == "user":
                 continue
             resposta = "".join(
@@ -97,8 +113,20 @@ def logo() -> FileResponse:
     return FileResponse(PAGINA.with_name("logo.png"))
 
 
+@app.post("/api/cancelar")
+async def cancelar(corpo: Sessao) -> dict:
+    """Encerra a conversa anterior quando o cliente inicia outra na interface."""
+    canceladas.add(corpo.sessao)
+    await sessoes.delete_session(
+        app_name=APP_NAME, user_id=corpo.sessao, session_id=corpo.sessao
+    )
+    return {"cancelada": True}
+
+
 @app.post("/api/mensagem")
 async def mensagem(corpo: Mensagem) -> StreamingResponse:
+    if corpo.sessao in canceladas:
+        return StreamingResponse(iter([_linha({"fim": True})]), media_type="application/x-ndjson")
     await _garantir_sessao(corpo.sessao)
     texto = corpo.texto.strip()
 
@@ -118,6 +146,8 @@ async def mensagem(corpo: Mensagem) -> StreamingResponse:
 @app.post("/api/aguardar")
 async def aguardar(corpo: Sessao) -> StreamingResponse:
     """Espera o cliente enviar o formulário e aciona o agente com a reclamação nova."""
+    if corpo.sessao in canceladas:
+        return StreamingResponse(iter([_linha({"fim": True})]), media_type="application/x-ndjson")
     await _garantir_sessao(corpo.sessao)
 
     async def fluxo():
@@ -127,11 +157,14 @@ async def aguardar(corpo: Sessao) -> StreamingResponse:
             return
         fim = time.monotonic() + ESPERA_MAXIMA_S
         novas: list[str] = []
-        while time.monotonic() < fim:
+        while time.monotonic() < fim and corpo.sessao not in canceladas:
             novas = await asyncio.to_thread(ids_novos, base)
             if novas:
                 break
             await asyncio.sleep(INTERVALO_S)
+        if corpo.sessao in canceladas:
+            yield _linha({"fim": True})
+            return
         if not novas:
             yield _linha({"fim": True, "expirou": True})
             return

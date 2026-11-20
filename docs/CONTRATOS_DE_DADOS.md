@@ -151,14 +151,16 @@ agente em `knowledge_base/politica_cupons_atraso.md`:
 
 | Atraso | Código | Benefício | Validade |
 |---|---|---|---|
-| 1 a 3 dias | DESCULPA5 ou FRETEZERO | 5% OFF ou frete grátis | 30 dias |
-| 4 a 7 dias | ATRASO10 | 10% OFF | 30 dias |
-| 8 a 14 dias | PRIORIDADE15 | 15% OFF + prioridade de envio | 45 dias |
-| 15 dias ou mais | ESPECIAL20 | 20% OFF (ou cancelamento com reembolso, via revisão humana) | 60 dias |
+| 1 dia | EF-FRETE | Frete grátis | 30 dias |
+| 2 dias | EF-CORTESIA5 | 5% OFF | 30 dias |
+| 3 a 4 dias | EF-GARANTIA10 | 10% OFF | 30 dias |
+| 5 a 7 dias | EF-COMPROMISSO15 | 15% OFF | 45 dias |
+| 8 a 14 dias | EF-PRIORIDADE20 | 20% OFF + prioridade no atendimento e no envio | 45 dias |
+| 15 dias ou mais | EF-PREMIUM25 | 25% OFF (ou cancelamento com reembolso, via revisão humana) | 60 dias |
 
 A ferramenta só retorna o cupom quando confirma um único pedido atrasado, e o
-registro só aceita o código da faixa calculada. Cliente muito irritado na
-primeira faixa pode subir para ATRASO10. O projeto não emite códigos
+registro só aceita o código da faixa calculada. Cliente muito irritado com
+atraso de 1 ou 2 dias pode subir para EF-GARANTIA10. O projeto não emite códigos
 individuais nem verifica validade ou limite de uso; isso exige integração com o
 sistema de cupons.
 

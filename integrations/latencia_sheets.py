@@ -37,8 +37,16 @@ CABECALHOS_TICKET = (
 )
 FUSO_LOCAL = "America/Sao_Paulo"
 
-# Um único worker mantém a ordem das linhas e evita bloquear a resposta do agente.
-_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="sheets-latencia")
+# A gravação nunca bloqueia a resposta do agente. Com o Apps Script (que tem
+# trava própria) as linhas saem em paralelo, para uma não esperar a outra e a
+# planilha refletir cada atendimento na hora. Pela API do Sheets, o cabeçalho
+# é criado sem trava, então fica um único worker.
+_EXECUTOR = ThreadPoolExecutor(
+    max_workers=4 if os.getenv("SHEETS_WEBHOOK_URL", "").strip() else 1,
+    thread_name_prefix="sheets-latencia",
+)
+_ABAS_PRONTAS: dict[str, object] = {}  # aba -> worksheet com cabeçalho já conferido
+_TENTATIVAS_ENVIO = 3
 
 
 def iniciar_medicao_latencia(contexto: Context) -> None:
@@ -157,26 +165,35 @@ def _anexar_linha(
     if not caminho_credenciais.is_absolute():
         caminho_credenciais = Path(__file__).resolve().parents[1] / caminho_credenciais
 
-    cliente = gspread.service_account(filename=str(caminho_credenciais))
-    planilha = cliente.open_by_key(id_planilha)
+    # Abrir a planilha e conferir o cabeçalho custa várias chamadas; só a
+    # primeira linha de cada aba paga isso, as seguintes fazem uma só (append).
+    aba = _ABAS_PRONTAS.get(nome_aba)
+    if aba is None:
+        cliente = gspread.service_account(filename=str(caminho_credenciais))
+        planilha = cliente.open_by_key(id_planilha)
+        try:
+            aba = planilha.worksheet(nome_aba)
+        except WorksheetNotFound:
+            aba = planilha.add_worksheet(
+                title=nome_aba,
+                rows=1000,
+                cols=len(cabecalhos),
+            )
+
+        cabecalhos_existentes = aba.row_values(1)
+        if not cabecalhos_existentes:
+            aba.append_row(list(cabecalhos), value_input_option="RAW")
+        elif tuple(cabecalhos_existentes) != cabecalhos:
+            raise ValueError(
+                f"A aba '{nome_aba}' precisa ter estes cabeçalhos: {list(cabecalhos)}"
+            )
+        _ABAS_PRONTAS[nome_aba] = aba
+
     try:
-        aba = planilha.worksheet(nome_aba)
-    except WorksheetNotFound:
-        aba = planilha.add_worksheet(
-            title=nome_aba,
-            rows=1000,
-            cols=len(cabecalhos),
-        )
-
-    cabecalhos_existentes = aba.row_values(1)
-    if not cabecalhos_existentes:
-        aba.append_row(list(cabecalhos), value_input_option="RAW")
-    elif tuple(cabecalhos_existentes) != cabecalhos:
-        raise ValueError(
-            f"A aba '{nome_aba}' precisa ter estes cabeçalhos: {list(cabecalhos)}"
-        )
-
-    aba.append_row(list(linha), value_input_option="RAW")
+        aba.append_row(list(linha), value_input_option="RAW")
+    except Exception:
+        _ABAS_PRONTAS.pop(nome_aba, None)  # sessão expirada: a próxima linha reabre
+        raise
 
 
 def sheets_configurado() -> bool:
@@ -213,18 +230,26 @@ def _enviar_para_apps_script(
     pedido = urllib.request.Request(
         url, data=corpo, headers={"Content-Type": "application/json"}, method="POST"
     )
-    # O Apps Script responde com um redirecionamento; o urllib o segue.
-    try:
-        with urllib.request.urlopen(pedido, timeout=20) as resposta:
-            texto = resposta.read().decode("utf-8", errors="replace")
-    except urllib.error.HTTPError as erro:
-        if erro.code in (401, 403):
-            raise ValueError(
-                f"O Apps Script pediu login (HTTP {erro.code}). Reimplante o App da "
-                "Web com 'Quem pode acessar: Qualquer pessoa' (não 'Qualquer pessoa "
-                "em <domínio>') e use o novo link /exec."
-            ) from None
-        raise
+    # O Apps Script responde com um redirecionamento; o urllib o segue. Uma
+    # lentidão ou queda passageira é repetida, para a linha não se perder.
+    for tentativa in range(1, _TENTATIVAS_ENVIO + 1):
+        try:
+            with urllib.request.urlopen(pedido, timeout=15) as resposta:
+                texto = resposta.read().decode("utf-8", errors="replace")
+            break
+        except urllib.error.HTTPError as erro:
+            if erro.code in (401, 403):
+                raise ValueError(
+                    f"O Apps Script pediu login (HTTP {erro.code}). Reimplante o App da "
+                    "Web com 'Quem pode acessar: Qualquer pessoa' (não 'Qualquer pessoa "
+                    "em <domínio>') e use o novo link /exec."
+                ) from None
+            if erro.code < 500 or tentativa == _TENTATIVAS_ENVIO:
+                raise
+        except (urllib.error.URLError, TimeoutError):
+            if tentativa == _TENTATIVAS_ENVIO:
+                raise
+        time.sleep(0.5 * tentativa)
     try:
         resultado = json.loads(texto)
     except json.JSONDecodeError:
