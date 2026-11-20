@@ -161,6 +161,20 @@
   .cupom small { display:block; font-family:system-ui,sans-serif; font-weight:500; letter-spacing:0; color:var(--suave); font-size:.72rem; }
   .cupom button { border:0; border-radius:9px; padding:8px 12px; cursor:pointer; font:inherit; font-size:.8rem; font-weight:700; color:#fff; background:var(--laranja); }
   .cupom button.ok { background:var(--verde); }
+  /* cartão completo do cupom: benefício em destaque, código, validade e como usar */
+  .cupom.cheio { display:block; padding:0; overflow:hidden; text-align:left; animation:entra .45s both; }
+  .cupom.cheio .cp-topo { display:flex; align-items:center; gap:8px; padding:9px 14px; font-size:.74rem; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:#fff; background:linear-gradient(130deg, var(--laranja), var(--laranja-2)); }
+  .cupom.cheio .cp-topo svg { width:17px; height:17px; color:#fff; }
+  .cupom.cheio .cp-corpo { padding:12px 16px 14px; }
+  .cupom.cheio .cp-valor { font-size:1.9rem; font-weight:800; line-height:1.1; color:var(--laranja-escuro); }
+  .cupom.cheio .cp-desc { margin-top:2px; font-size:.88rem; color:var(--suave); }
+  .cupom.cheio .cp-cod { display:flex; align-items:center; gap:10px; margin:12px 0 10px; padding:9px 10px 9px 14px; border-radius:11px; border:1.5px dashed var(--laranja); background:var(--card); }
+  .cupom.cheio .cp-cod code { flex:1; font-family:ui-monospace,Consolas,monospace; font-weight:800; font-size:1.05rem; letter-spacing:1.2px; color:var(--laranja-escuro); word-break:break-all; }
+  .cupom.cheio ul { list-style:none; margin:0; padding:0; display:grid; gap:6px; font-size:.82rem; color:var(--suave); }
+  .cupom.cheio li { display:flex; gap:8px; align-items:flex-start; }
+  .cupom.cheio li b { color:inherit; font-weight:700; }
+  :root[data-theme="dark"] .cupom.cheio .cp-valor, :root[data-theme="dark"] .cupom.cheio .cp-cod code { color:var(--laranja-2); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cupom.cheio .cp-valor, :root:not([data-theme="light"]) .cupom.cheio .cp-cod code { color:var(--laranja-2); } }
   :root[data-theme="dark"] .cupom .cod { color:var(--laranja-2); }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cupom .cod { color:var(--laranja-2); } }
 
@@ -446,7 +460,7 @@ function formatar(texto) {
   html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/^[-*] /gm, "• ");
   let temCta = false, temCupom = false, cartaoCupom = "";
   html = html.replace(COD_CUPOM, (c) => {
-    if (!/\d/.test(c)) return c;
+    if (!/\d/.test(c) && !/^EF-/.test(c)) return c;
     if (!temCupom) {
       temCupom = true;
       cartaoCupom = '<span class="cupom">' + ICONE_CUPOM + '<span class="cod">' + c + "<small>Seu cupom de desconto</small></span>" +
@@ -515,6 +529,46 @@ function bolha(texto, quem, opcoes) {
   }
   rolar();
   return l;
+}
+/* Cartão completo do cupom, montado com os dados que a ferramenta aprovou (código, benefício, validade). */
+function cartaoCupomCompleto(c) {
+  const b = String(c.beneficio || "");
+  const pct = b.match(/(\d+)\s*%/);
+  const valor = pct ? pct[1] + "% OFF" : (/frete gr[aá]tis/i.test(b) ? "Frete grátis" : "Desconto");
+  const desc = "na sua próxima compra";
+  const prioridade = /prioridade/i.test(b);
+  const ate = new Date(Date.now() + c.validade_dias * 86400000).toLocaleDateString("pt-BR");
+  const el = document.createElement("div");
+  el.className = "cupom cheio";
+  el.dataset.cod = c.codigo;
+  el.innerHTML =
+    '<div class="cp-topo">' + ICONE_CUPOM + "<span>Seu cupom de compensação</span></div>" +
+    '<div class="cp-corpo">' +
+      '<div class="cp-valor">' + esc(valor) + "</div>" +
+      '<div class="cp-desc">' + esc(desc) + "</div>" +
+      '<div class="cp-cod"><code>' + esc(c.codigo) + '</code><button type="button" data-cod="' + esc(c.codigo) + '">Copiar código</button></div>' +
+      "<ul>" +
+        "<li>⏳ <span>Válido por <b>" + c.validade_dias + " dias</b> (até " + ate + ")</span></li>" +
+        '<li>🛒 <span>Como usar: copie o código e cole no campo <b>"Cupom"</b> do carrinho, ao finalizar a próxima compra.</span></li>' +
+        (prioridade ? "<li>⭐ <span>Você também tem <b>prioridade no atendimento e no envio</b> dos próximos pedidos.</span></li>" : "") +
+      "</ul>" +
+    "</div>";
+  el.querySelector("button").addEventListener("click", (e) => {
+    copiar(c.codigo, "Cupom copiado"); e.target.textContent = "Copiado ✓"; e.target.classList.add("ok");
+  });
+  return el;
+}
+function mostrarCupom(c) {
+  if (!c || !c.codigo) return;
+  const cartao = cartaoCupomCompleto(c);
+  // Troca o cartão simples da mensagem (se houver); senão, entra logo abaixo da última resposta.
+  const simples = [...msgs.querySelectorAll(".cupom:not(.cheio)")].reverse().find(e => e.dataset.cod === c.codigo || (e.querySelector("button") || {}).dataset?.cod === c.codigo);
+  if (simples) simples.replaceWith(cartao);
+  else {
+    const ultima = [...msgs.querySelectorAll(".linha.bot .b")].pop();
+    if (ultima) ultima.insertBefore(cartao, ultima.querySelector(".meta")); else msgs.insertBefore(cartao, dig);
+  }
+  rolar();
 }
 function copiar(texto, aviso) {
   const ok = () => toast(aviso);
@@ -654,6 +708,7 @@ async function lerFluxo(url, corpo, sinal) {
       if (!l) continue;
       const ev = JSON.parse(l);
       if (ev.texto) { marcarLido(); removerCartao(false); bolha(ev.texto, "bot"); }
+      if (ev.cupom) mostrarCupom(ev.cupom);
       if (ev.aguardando) { aguardando = true; passo(2); }
       if (ev.recebido) { recebeuForm = true; fecharFormulario(); passo(3); digitando(false); cartaoAnalisando(); }
     }

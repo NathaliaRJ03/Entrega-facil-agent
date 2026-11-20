@@ -15,6 +15,7 @@ mensagem interna "[Sistema] ..." para ele responder com a solução.
 import asyncio
 import json
 import os
+import re
 import time
 from pathlib import Path
 
@@ -77,15 +78,44 @@ async def _garantir_sessao(sessao: str):
     )
 
 
+_PADRAO_CUPOM = re.compile(
+    r"Cupom aprovado:\s*(?P<codigo>[A-Z0-9-]+);\s*benefício:\s*(?P<beneficio>.+?);\s*"
+    r"validade:\s*(?P<dias>\d+)\s*dias"
+)
+
+
+def _cupom_da_ferramenta(evento) -> dict | None:
+    """Lê o cupom aprovado direto da resposta da ferramenta (fonte única, não do texto do modelo)."""
+    try:
+        respostas = evento.get_function_responses()
+    except Exception:  # noqa: BLE001 - evento sem respostas de ferramenta
+        return None
+    for resposta in respostas or []:
+        if resposta.name != "oferecer_cupom_atraso":
+            continue
+        dados = resposta.response
+        texto = dados.get("result", "") if isinstance(dados, dict) else str(dados)
+        achado = _PADRAO_CUPOM.search(str(texto))
+        if achado:
+            return {
+                "codigo": achado["codigo"],
+                "beneficio": achado["beneficio"].strip(),
+                "validade_dias": int(achado["dias"]),
+            }
+    return None
+
+
 async def _rodar_agente(sessao: str, texto: str, state_delta: dict | None = None):
     """Roda o agente e devolve só o texto escrito ao cliente (sem ferramentas)."""
     entrada = types.Content(role="user", parts=[types.Part(text=texto)])
+    cupom: dict | None = None
     try:
         async for evento in runner.run_async(
             user_id=sessao, session_id=sessao, new_message=entrada, state_delta=state_delta
         ):
             if sessao in canceladas:
                 return
+            cupom = _cupom_da_ferramenta(evento) or cupom
             if evento.partial or not evento.content or evento.author == "user":
                 continue
             resposta = "".join(
@@ -93,6 +123,9 @@ async def _rodar_agente(sessao: str, texto: str, state_delta: dict | None = None
             ).strip()
             if resposta:
                 yield _linha({"texto": resposta})
+        if cupom:
+            # Depois do texto: a página troca o código da mensagem por um cartão completo.
+            yield _linha({"cupom": cupom})
     except Exception:  # noqa: BLE001 - nunca vazar detalhes internos ao cliente
         yield _linha({"texto": "Desculpe, tive um problema por aqui. Pode tentar de novo?"})
 
