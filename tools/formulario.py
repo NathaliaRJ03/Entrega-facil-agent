@@ -107,6 +107,20 @@ def enviar_link_formulario(
     )
 
 
+def cancelar_espera_formulario(tool_context: ToolContext) -> str:
+    """Encerra a espera do formulário quando o cliente desiste da reclamação.
+
+    Chame quando o cliente disser que não quer mais reclamar ou não vai
+    preencher o formulário. Depois, despeça-se com cordialidade.
+    """
+    tool_context.state[CHAVE_BASE] = None
+    return (
+        "Espera do formulário encerrada. Confirme ao cliente que tudo bem, que o "
+        "atendimento foi encerrado sem abrir reclamação e que ele pode voltar quando "
+        "quiser. Não envie outro link."
+    )
+
+
 def ids_novos(base: list[str]) -> list[str]:
     """IDs de reclamações que não estavam na planilha quando o link foi enviado."""
     conhecidos = set(base)

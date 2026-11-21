@@ -151,6 +151,7 @@
     box-shadow:0 14px 26px -12px rgba(242,106,27,.9); transition:transform .15s;
   }
   .cta:hover { transform:translateY(-2px); } .cta svg { width:19px; height:19px; }
+  .cta.usado { background:#3a322c; box-shadow:none; color:#b9aca1 !important; cursor:default; pointer-events:none; }
 
   .cupom {
     position:relative; display:flex; align-items:center; gap:12px; margin:10px 0 4px; padding:12px 14px 12px 16px; border-radius:14px;
@@ -332,7 +333,7 @@
   </form>
   <div class="rodape">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
-    Atendimento seguro: nunca informe senhas ou dados de cartão no chat
+    Atendimento seguro: nunca informe senhas, CPF ou dados de cartão no chat nem no formulário
   </div>
 </main>
 
@@ -396,7 +397,7 @@ function passo(n, concluido) {
 /* explicação e ação de cada passo */
 const PASSOS = {
   1: { titulo: "Seus dados", texto: "Informe seu nome e o ID do pedido, como aparecem na compra. Conferimos tudo antes de enviar o formulário.", acao: "Informar meus dados" },
-  2: { titulo: "Formulário", texto: "Preencha o formulário, que já abre com seus dados. Quando você enviar, a aba fecha sozinha e a gente continua por aqui.", acao: "Abrir o formulário" },
+  2: { titulo: "Formulário", texto: "Preencha o formulário, que já abre com seus dados. Quando você enviar, a aba fecha sozinha e a gente continua por aqui. Não escreva CPF nem dados de cartão no formulário.", acao: "Abrir o formulário" },
   3: { titulo: "Solução", texto: "Conferimos as informações com o seu pedido e mostramos a solução aqui no chat.", acao: "Ver a solução" },
 };
 const dicaEl = $("dicaPasso");
@@ -676,7 +677,16 @@ function abrirFormulario(url) {
   } catch (e) {}
   return false;
 }
+// O envio já foi recebido: o link antigo não é mais acompanhado, então não deixa reenviar.
+function desativarLinksDoFormulario() {
+  document.querySelectorAll("a.cta:not(.usado)").forEach(a => {
+    a.classList.add("usado");
+    a.removeAttribute("href"); a.removeAttribute("target");
+    a.innerHTML = ICONE_FORM + "Formulário já enviado";
+  });
+}
 function fecharFormulario() {
+  desativarLinksDoFormulario();
   let fechou = false;
   try {
     if (janelaForm && !janelaForm.closed) { janelaForm.close(); fechou = janelaForm.closed || true; }
@@ -693,6 +703,14 @@ msgs.addEventListener("click", (e) => {
 /* ---------- comunicação com o servidor ---------- */
 let recebeuForm = false;
 let espera = null;   // espera do envio do formulário (cancelada se o cliente escrever)
+const RE_SENSIVEL = /\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b|\b(?:\d[ -]?){13,19}\b|\b(cpf|cartao|cartão|senha|cvv)\b/i;
+const AVISO_SENSIVEL = "Aviso de segurança: não informe CPF, número de cartão ou senha aqui no chat nem no formulário. Não precisamos desses dados para o seu atendimento.";
+let desistiu = false; // o cliente desistiu da reclamação: não mostrar a espera do formulário
+const RE_DESISTENCIA = new RegExp("(nao quero mais|nao vou mais|nao vou (fazer|preencher|enviar)|desisti|desisto|deixa pra la|deixa para la|esquece|cancela(r)? (a )?reclamacao)");
+function textoDesiste(texto) {
+  const limpo = texto.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  return RE_DESISTENCIA.test(limpo);
+}
 
 async function lerFluxo(url, corpo, sinal) {
   const r = await fetch(url, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(corpo), signal: sinal });
@@ -707,6 +725,7 @@ async function lerFluxo(url, corpo, sinal) {
     for (const l of linhas) {
       if (!l) continue;
       const ev = JSON.parse(l);
+      if (ev.texto && /docs\.google\.com\/forms/.test(ev.texto)) desistiu = false;
       if (ev.texto) { marcarLido(); removerCartao(false); bolha(ev.texto, "bot"); }
       if (ev.cupom) mostrarCupom(ev.cupom);
       if (ev.aguardando) { aguardando = true; passo(2); }
@@ -739,6 +758,7 @@ async function enviar(texto, repetir) {
   if (espera) { espera.abort(); espera = null; removerCartao(true); }
   botao.disabled = true; t.disabled = true;
   recebeuForm = false;
+  if (textoDesiste(texto)) desistiu = true;
   if (!repetir) bolha(texto, "eu");
   digitando(true);
   let aguardando = false, falhou = false;
@@ -748,8 +768,24 @@ async function enviar(texto, repetir) {
     falhou = true;
     bolha("Não consegui falar com o atendimento agora. Verifique sua conexão e tente novamente.", "bot", { erro:true, retry: () => enviar(texto, true) });
   }
-  digitando(false); botao.disabled = false; t.disabled = false; if (!falhou) t.focus();
-  if (aguardando) esperarFormulario();
+  digitando(false);
+  if (!falhou && RE_SENSIVEL.test(texto)) bolha(AVISO_SENSIVEL, "bot");
+  if (desistiu && !falhou) { encerrarConversa(); return; }
+  botao.disabled = false; t.disabled = false; if (!falhou) t.focus();
+  if (aguardando && !desistiu) esperarFormulario();
+}
+
+/* O cliente desistiu da reclamação: a conversa só se encerra (sem cartões nem campo de texto). */
+function encerrarConversa() {
+  document.querySelectorAll(".dados, .rapidas").forEach(el => el.remove());
+  removerCartao(false);
+  botao.disabled = true; t.disabled = true;
+  t.placeholder = "Atendimento encerrado";
+  const r = document.createElement("div");
+  r.className = "rapidas";
+  r.innerHTML = '<button type="button">Novo atendimento</button>';
+  r.querySelector("button").addEventListener("click", () => { r.remove(); reiniciarConversa(); });
+  msgs.insertBefore(r, dig);
 }
 
 f.addEventListener("submit", e => {

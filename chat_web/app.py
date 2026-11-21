@@ -17,6 +17,7 @@ import json
 import os
 import re
 import time
+import unicodedata
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -38,6 +39,21 @@ from tools.formulario import CHAVE_BASE, ids_novos  # noqa: E402
 PAGINA = Path(__file__).with_name("index.html")
 APP_NAME = "entrega_facil_chat"
 PREFIXO_SISTEMA = "[Sistema]"
+
+# Desistência: encerra a espera do formulário no servidor, sem depender de o modelo
+# chamar a ferramenta. Compara sem acento e sem maiúsculas ("nao quero mais...").
+_DESISTENCIA = re.compile(
+    r"(nao quero mais|nao vou mais|nao vou (fazer|preencher|enviar)|desisti|desistir|"
+    r"desisto|deixa pra la|deixa para la|esquece|cancela(r)? (a )?reclamacao)"
+)
+
+
+def _desistiu(texto: str) -> bool:
+    limpo = unicodedata.normalize("NFD", texto.lower())
+    limpo = "".join(c for c in limpo if unicodedata.category(c) != "Mn")
+    return bool(_DESISTENCIA.search(limpo))
+
+
 ESPERA_MAXIMA_S = float(os.getenv("FORMS_ESPERA_SEGUNDOS", "900"))
 # Cada conferência da planilha já leva ~2 s para baixar; esperar mais 3 s entre
 # elas atrasava a resposta ao cliente em até 6 s depois do envio do formulário.
@@ -167,7 +183,8 @@ async def mensagem(corpo: Mensagem) -> StreamingResponse:
         if texto.startswith(PREFIXO_SISTEMA):
             yield _linha({"texto": "Não entendi. Pode me contar o que aconteceu com o seu pedido?"})
         else:
-            async for linha in _rodar_agente(corpo.sessao, texto):
+            delta = {CHAVE_BASE: None} if _desistiu(texto) else None
+            async for linha in _rodar_agente(corpo.sessao, texto, delta):
                 yield linha
             if await _base_pendente(corpo.sessao) is not None:
                 yield _linha({"aguardando": True})
