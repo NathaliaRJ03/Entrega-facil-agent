@@ -1276,7 +1276,7 @@
           "dias_atraso": "0"
         }
       ],
-      "esperado": "diverge"
+      "esperado": "confere"
     },
     {
       "id": "data_da_compra_diferente",
