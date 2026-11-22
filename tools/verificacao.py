@@ -252,16 +252,20 @@ def conferir(
     qtd_enviada = _numero(pedido.get("qtd_enviada_total", ""))
     faltou_item = qtd_itens is not None and qtd_enviada is not None and qtd_enviada < qtd_itens
 
-    if chave_tipo == "atraso" and atraso == "não":
-        registrar("tipo_contestacao", "diverge", "a Gold mostra o pedido entregue no prazo")
-    elif compativeis is not None and chave_tipo in SINONIMOS_RELATO and chave_tipo != "pedido_nao_encontrado":
+    if compativeis is not None and chave_tipo in SINONIMOS_RELATO and chave_tipo != "pedido_nao_encontrado":
         if chave_tipo in compativeis:
             registrar("tipo_contestacao", "confere")
         else:
             registrar("tipo_contestacao", "diverge", "a Gold registra outro motivo de reclamação para este pedido")
     elif chave_tipo == "atraso":
-        registrar("tipo_contestacao", "confere" if atraso == "sim" else "nao_verificavel",
-                  "" if atraso == "sim" else "a Gold ainda não tem a entrega para confirmar o atraso")
+        if atraso == "sim":
+            registrar("tipo_contestacao", "confere")
+        elif atraso == "não":
+            # Cliente reclama de atraso, mas a Gold mostra entrega no prazo: não é
+            # divergência de identidade. O agente explica com as datas, sem cupom.
+            registrar("tipo_contestacao", "confere", "a Gold mostra o pedido entregue no prazo")
+        else:
+            registrar("tipo_contestacao", "nao_verificavel", "a Gold ainda não tem a entrega para confirmar o atraso")
     elif chave_tipo == "pedido_nao_enviado":
         if situacao in ("nao_enviado", "cancelado"):
             registrar("tipo_contestacao", "confere")
