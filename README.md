@@ -119,7 +119,7 @@ A conferência é feita por [tools/verificacao.py](tools/verificacao.py), campo 
 
 ## Tipos de contestação
 
-Definidos em [tools/tipos_reclamacao.py](tools/tipos_reclamacao.py) e descritos em [knowledge_base/scripts_por_tipo_reclamacao.md](knowledge_base/scripts_por_tipo_reclamacao.md). A classificação nunca é feita pelo modelo.
+Definidos em [tools/tipos_reclamacao.py](tools/tipos_reclamacao.py) e descritos em [knowledge_base_orien/scripts_por_tipo_reclamacao.md](knowledge_base_orien/scripts_por_tipo_reclamacao.md). A classificação nunca é feita pelo modelo.
 
 | Tipo | Equipe | O que o agente faz | Cupom |
 |---|---|---|---|
@@ -145,7 +145,7 @@ O código e a faixa são calculados pela ferramenta `oferecer_cupom_atraso` a pa
 | 8 a 14 dias | 20% + prioridade no atendimento e no envio | `EF-PRIORIDADE20` | 45 dias |
 | 15 dias ou mais | 25% (ou cancelamento com reembolso, via revisão humana) | `EF-PREMIUM25` | 60 dias |
 
-Cada faixa tem um modelo de resposta próprio, devolvido pela ferramenta junto com o cupom. Cliente muito irritado com atraso de 1 ou 2 dias pode subir para a faixa de 10%. A regra completa está em [knowledge_base/politica_cupons_atraso.md](knowledge_base/politica_cupons_atraso.md).
+Cada faixa tem um modelo de resposta próprio, devolvido pela ferramenta junto com o cupom. Cliente muito irritado com atraso de 1 ou 2 dias pode subir para a faixa de 10%. A regra completa está em [knowledge_base_orien/politica_cupons_atraso.md](knowledge_base_orien/politica_cupons_atraso.md).
 
 ## Segurança e privacidade
 
@@ -188,9 +188,9 @@ adk web (desenvolvimento) ─────────────┘        │
 │   └── salvar_atendimento.py  # registro, revisão humana e exclusão da resposta
 ├── integrations/          # Forms/Sheets, Databricks, latência, proteção de dados
 ├── retriever/             # Busca BM25 com correção de digitação
-├── knowledge_base/        # Scripts por tipo, política de cupons, regras de atendimento
+├── knowledge_base_orien/  # Scripts por tipo, política de cupons, regras de atendimento
 ├── eval/                  # Avaliação local com casos sintéticos
-├── docs/                  # Contratos de dados, dashboard de latência, Apps Scripts
+├── docs/                  # Apps Scripts e imagens de referência
 ├── scripts/               # Utilitários (teste da conexão com o Databricks)
 └── data/saida/            # Registro local de atendimentos (ignorado pelo git)
 ```
@@ -265,7 +265,7 @@ Todas as variáveis ficam no `.env` (modelo em [.env.example](.env.example)).
 ### Colunas esperadas
 
 - **Forms:** Nome, E-mail de contato, ID do pedido, Tipo de contestação, Descreva o que ocorreu, Informe quando a compra foi realizada.
-- **Gold:** `id_pedido`, `nome_cliente`, `situacao_pedido`, `data_pedido`, `data_planejada_entrega`, `data_real_entrega`, `atraso_status`, `descricao_produto`, `motivos_reclamacao`, `qtd_itens`, `qtd_enviada` e, opcionalmente, `valor_pedido`. Cabeçalhos alternativos são aceitos e estão em [docs/CONTRATOS_DE_DADOS.md](docs/CONTRATOS_DE_DADOS.md).
+- **Gold:** `id_pedido`, `nome_cliente`, `situacao_pedido`, `data_pedido`, `data_planejada_entrega`, `data_real_entrega`, `atraso_status`, `descricao_produto`, `motivos_reclamacao`, `qtd_itens`, `qtd_enviada` e, opcionalmente, `valor_pedido`. Cabeçalhos alternativos são aceitos e definidos em [integrations/contratos.py](integrations/contratos.py).
 
 ## Testes
 
@@ -281,17 +281,15 @@ Ela cobre fila e privacidade, regras de cupom, registro minimizado, conferência
 
 - Resposta curta ("oi"): cerca de 1,5 s.
 - O fluxo de atendimento foi otimizado para poucas idas ao modelo: o ID da reclamação vem direto da detecção do envio, o pedido e a reclamação são consultados em paralelo e o script do tipo já vem junto dos dados.
-- A latência de cada invocação do agente é medida e enviada ao Google Sheets em segundo plano. Veja [docs/LATENCIA_DASHBOARD.md](docs/LATENCIA_DASHBOARD.md).
+- A latência de cada invocação do agente é medida e enviada ao Google Sheets em segundo plano. Veja [integrations/latencia_sheets.py](integrations/latencia_sheets.py).
 
 ## Documentação
 
 | Documento | Conteúdo |
 |---|---|
-| [docs/CONTRATOS_DE_DADOS.md](docs/CONTRATOS_DE_DADOS.md) | Colunas esperadas do Forms e da Gold, e como o agente usa cada uma |
-| [docs/LATENCIA_DASHBOARD.md](docs/LATENCIA_DASHBOARD.md) | Métricas de latência e tickets no Google Sheets |
-| [docs/apps_script_confirmacao_forms.gs](docs/apps_script_confirmacao_forms.gs) | Apps Script que envia e-mail de confirmação ao receber o Forms |
+| [docs/apps_script_email.gs](docs/apps_script_email.gs) | Apps Script que envia e-mail de confirmação ao receber o Forms |
 | [docs/apps_script_sheets.gs](docs/apps_script_sheets.gs) | Webhook em Apps Script para gravar métricas sem conta de serviço |
-| [knowledge_base/](knowledge_base/) | Scripts por tipo de contestação, política de cupons e regras de atendimento |
+| [knowledge_base_orien/](knowledge_base_orien/) | Scripts por tipo de contestação, política de cupons e regras de atendimento |
 
 ## Limitações conhecidas
 

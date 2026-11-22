@@ -214,7 +214,7 @@ def _enviar_para_apps_script(
 
     Alternativa à conta de serviço: o script roda com a conta dona da planilha,
     então não precisa do Google Cloud. O token impede que outra pessoa com o
-    link grave na planilha. Ver docs/LATENCIA_DASHBOARD.md.
+    link grave na planilha.
     """
     if not url.startswith("https://script.google.com/"):
         raise ValueError("SHEETS_WEBHOOK_URL precisa ser o link /exec do Apps Script.")

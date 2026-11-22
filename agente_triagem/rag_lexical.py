@@ -9,7 +9,7 @@ from retriever.bm25 import BuscaBM25
 
 
 PASTA_PROJETO = Path(__file__).resolve().parent.parent
-PASTA_CONHECIMENTO = PASTA_PROJETO / "knowledge_base"
+PASTA_CONHECIMENTO = PASTA_PROJETO / "knowledge_base_orien"
 
 
 def dividir_markdown(texto: str) -> list[tuple[str, str]]:
@@ -64,7 +64,7 @@ def buscar_documentos_apoio(consulta: str) -> str:
         return f"Não consegui carregar a base de conhecimento: {erro}"
 
     if not busca.documentos:
-        return "A base está vazia. Adicione documentos de pedidos em knowledge_base/*.md."
+        return "A base está vazia. Adicione documentos de pedidos em knowledge_base_orien/*.md."
 
     consulta_segura = mascarar_dados_sensiveis(consulta)
     resultados = busca.buscar(consulta_segura, limite=3)

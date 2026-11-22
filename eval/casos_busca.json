@@ -5,25 +5,25 @@
     {
       "id": "regra_para_confirmar_atraso",
       "consulta": "Como confirmar atraso pela previsão e data de entrega?",
-      "fonte_esperada": "knowledge_base/atendimento_pedidos.md > Confirmar atraso",
+      "fonte_esperada": "knowledge_base_orien/atendimento_pedidos.md > Confirmar atraso",
       "posicao_esperada": 1
     },
     {
       "id": "regra_de_cupom",
       "consulta": "Qual desconto oferecer para cada faixa de dias de atraso do pedido?",
-      "fonte_esperada": "knowledge_base/politica_cupons_atraso.md > Tabela de descontos por atraso de pedido",
+      "fonte_esperada": "knowledge_base_orien/politica_cupons_atraso.md > Tabela de descontos por atraso de pedido",
       "posicao_esperada": 1
     },
     {
       "id": "conferencia_de_nome_e_id",
       "consulta": "Como conferir o nome do cliente e o ID do pedido na Gold?",
-      "fonte_esperada": "knowledge_base/atendimento_pedidos.md > Localizar o pedido",
+      "fonte_esperada": "knowledge_base_orien/atendimento_pedidos.md > Localizar o pedido",
       "posicao_esperada": 1
     },
     {
       "id": "erro_de_digitacao_corrigido_antes_do_bm25",
       "consulta": "atraso atrazo previsão entrega",
-      "fonte_esperada": "knowledge_base/atendimento_pedidos.md > Confirmar atraso",
+      "fonte_esperada": "knowledge_base_orien/atendimento_pedidos.md > Confirmar atraso",
       "posicao_esperada": 1,
       "correcoes_esperadas": {
         "atrazo": "atraso"
@@ -32,55 +32,55 @@
     {
       "id": "busca_por_id_e_conferencia_de_nome",
       "consulta": "A busca pode localizar pelo ID do pedido e conferir o nome do cadastro?",
-      "fonte_esperada": "knowledge_base/atendimento_pedidos.md > Localizar o pedido",
+      "fonte_esperada": "knowledge_base_orien/atendimento_pedidos.md > Localizar o pedido",
       "posicao_esperada": 1
     },
     {
       "id": "divergencia_entre_forms_e_cadastro",
       "consulta": "O nome informado no Forms não corresponde ao cliente do registro; o que responder?",
-      "fonte_esperada": "knowledge_base/atendimento_pedidos.md > Localizar o pedido",
+      "fonte_esperada": "knowledge_base_orien/atendimento_pedidos.md > Localizar o pedido",
       "posicao_esperada": 1
     },
     {
       "id": "dados_de_status_e_entrega",
       "consulta": "Quais dados confirmados posso passar sobre descrição, status e datas da entrega?",
-      "fonte_esperada": "knowledge_base/atendimento_pedidos.md > Situação e entrega",
+      "fonte_esperada": "knowledge_base_orien/atendimento_pedidos.md > Situação e entrega",
       "posicao_esperada": 1
     },
     {
       "id": "relato_de_demora_nao_confirma_atraso",
       "consulta": "A reclamação diz demora e que a encomenda não chegou; isso prova que atrasou?",
-      "fonte_esperada": "knowledge_base/atendimento_pedidos.md > Situação e entrega",
+      "fonte_esperada": "knowledge_base_orien/atendimento_pedidos.md > Situação e entrega",
       "posicao_esperada": 1
     },
     {
       "id": "consultar_status_e_datas",
       "consulta": "Consultar status do pedido, previsão de entrega e data da entrega",
-      "fonte_esperada": "knowledge_base/atendimento_pedidos.md > Situação e entrega",
+      "fonte_esperada": "knowledge_base_orien/atendimento_pedidos.md > Situação e entrega",
       "posicao_esperada": 1
     },
     {
       "id": "atraso_sem_data_de_entrega",
       "consulta": "Sem data de entrega, posso comparar a previsão com a data atual para saber os dias de atraso?",
-      "fonte_esperada": "knowledge_base/atendimento_pedidos.md > Confirmar atraso",
+      "fonte_esperada": "knowledge_base_orien/atendimento_pedidos.md > Confirmar atraso",
       "posicao_esperada": 1
     },
     {
       "id": "cupom_somente_com_atraso_confirmado",
       "consulta": "Só ofereça o código aprovado quando a ferramenta confirmar atraso; não crie percentual.",
-      "fonte_esperada": "knowledge_base/atendimento_pedidos.md > Cupom por atraso",
+      "fonte_esperada": "knowledge_base_orien/atendimento_pedidos.md > Cupom por atraso",
       "posicao_esperada": 1
     },
     {
       "id": "cliente_nao_encontra_cupom",
       "consulta": "script cliente não recebeu o cupom",
-      "fonte_esperada": "knowledge_base/politica_cupons_atraso.md > Script: cliente não recebeu ou não encontra o cupom",
+      "fonte_esperada": "knowledge_base_orien/politica_cupons_atraso.md > Script: cliente não recebeu ou não encontra o cupom",
       "posicao_esperada": 1
     },
     {
       "id": "metadados_depois_do_atendimento",
       "consulta": "Que metadados registrar depois de responder ao cliente?",
-      "fonte_esperada": "knowledge_base/atendimento_pedidos.md > Registrar atendimento",
+      "fonte_esperada": "knowledge_base_orien/atendimento_pedidos.md > Registrar atendimento",
       "posicao_esperada": 1,
       "texto_contem": [
         "somente se um cupom foi oferecido",
@@ -91,7 +91,7 @@
     {
       "id": "nao_guardar_relato_completo",
       "consulta": "O CSV operacional guarda o relato, nome ou contato do cliente?",
-      "fonte_esperada": "knowledge_base/atendimento_pedidos.md > Registrar atendimento",
+      "fonte_esperada": "knowledge_base_orien/atendimento_pedidos.md > Registrar atendimento",
       "posicao_esperada": 1,
       "texto_contem": [
         "não guarda o relato",
@@ -103,7 +103,7 @@
     {
       "id": "campos_do_csv_de_atendimentos",
       "consulta": "Quais campos operacionais o CSV de atendimentos guarda?",
-      "fonte_esperada": "knowledge_base/atendimento_pedidos.md > Registrar atendimento",
+      "fonte_esperada": "knowledge_base_orien/atendimento_pedidos.md > Registrar atendimento",
       "posicao_esperada": 1,
       "texto_contem": [
         "ID da reclamação",
@@ -119,13 +119,13 @@
     {
       "id": "script_pedido_atrasado",
       "consulta": "script pedido atrasado",
-      "fonte_esperada": "knowledge_base/politica_cupons_atraso.md > Script: pedido atrasado",
+      "fonte_esperada": "knowledge_base_orien/politica_cupons_atraso.md > Script: pedido atrasado",
       "posicao_esperada": 1
     },
     {
       "id": "script_erro_no_pedido",
       "consulta": "script erro no pedido qualidade",
-      "fonte_esperada": "knowledge_base/politica_cupons_atraso.md > Script: reclamação sobre qualidade ou erro no pedido",
+      "fonte_esperada": "knowledge_base_orien/politica_cupons_atraso.md > Script: reclamação sobre qualidade ou erro no pedido",
       "posicao_esperada": 1
     }
   ],

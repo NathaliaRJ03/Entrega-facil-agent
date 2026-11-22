@@ -3,7 +3,8 @@
 Cada contrato define as colunas canônicas que o agente usa e os nomes
 alternativos aceitos (ex.: o título da pergunta no Google Forms). Assim a
 equipe pode entregar os dados com o cabeçalho que for mais natural, desde
-que ele bata com algum apelido. Ver docs/CONTRATOS_DE_DADOS.md.
+que ele bata com algum apelido. A normalização e os apelidos ficam definidos
+neste módulo.
 
 Fontes (sem reserva em arquivo nem amostra sintética):
 - Reclamações: respostas do Google Forms, lidas no Google Sheets.

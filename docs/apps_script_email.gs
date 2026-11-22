@@ -11,7 +11,7 @@
  * e-mails por dia (Workspace: ~1500).
  */
 
-// Títulos das perguntas do Forms (iguais aos usados em docs/CONTRATOS_DE_DADOS.md).
+// Títulos das perguntas do Google Forms.
 const PERGUNTA_EMAIL = 'E-mail';
 const PERGUNTA_NOME = 'Nome';
 const PERGUNTA_PEDIDO = 'ID do pedido';

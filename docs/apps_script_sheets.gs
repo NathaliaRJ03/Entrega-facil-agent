@@ -3,7 +3,7 @@
  *
  * Onde colar: na planilha, Extensões > Apps Script. Substitua todo o conteúdo
  * por este arquivo, troque o TOKEN pelo valor de SHEETS_WEBHOOK_TOKEN do .env
- * e implante como App da Web (ver docs/LATENCIA_DASHBOARD.md).
+ * e implante como App da Web.
  */
 const TOKEN = 'COLE_AQUI_O_SHEETS_WEBHOOK_TOKEN_DO_ENV';
 // ID da planilha (o trecho entre /d/ e /edit no link dela). Necessário quando o

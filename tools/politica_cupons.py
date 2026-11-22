@@ -1,7 +1,7 @@
 """Tabela progressiva de cupons por atraso: fonte única para oferta e registro.
 
 Para mudar códigos, percentuais ou validade, edite FAIXAS. A orientação de
-comportamento do agente fica em knowledge_base/politica_cupons_atraso.md.
+comportamento do agente fica em knowledge_base_orien/politica_cupons_atraso.md.
 """
 
 from dataclasses import dataclass

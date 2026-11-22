@@ -27,7 +27,7 @@ from .salvar_atendimento import (
 
 _CACHE_PEDIDOS: dict[str, tuple[float, tuple]] = {}
 _VALIDADE_PEDIDO_S = 60.0
-_ARQUIVO_SCRIPTS = Path(__file__).resolve().parent.parent / "knowledge_base" / "scripts_por_tipo_reclamacao.md"
+_ARQUIVO_SCRIPTS = Path(__file__).resolve().parent.parent / "knowledge_base_orien" / "scripts_por_tipo_reclamacao.md"
 
 
 def _carregar_pedido_cache(id_pedido: str):
