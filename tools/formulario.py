@@ -29,6 +29,11 @@ def _limpar(texto: str, limite: int) -> str:
 def _link_preenchido(base: str, nome: str, id_pedido: str) -> str:
     partes = urlsplit(base)
     url = f"{partes.scheme}://{partes.netloc}{partes.path}?usp=pp_url"
+    # Abre o formulário já com a conta da Entrega Fácil (se estiver logada no navegador),
+    # em vez da conta pessoal que estiver ativa.
+    conta = os.getenv("FORMS_AUTHUSER", "entregafacil08@gmail.com").strip()
+    if conta:
+        url += f"&authuser={quote(conta)}"
     if nome:
         url += f"&{_ENTRY_NOME}={quote(nome)}"
     if id_pedido:

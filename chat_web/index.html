@@ -693,7 +693,15 @@ function fecharFormulario() {
   } catch (e) {}
   janelaForm = null;
   try { window.focus(); } catch (e) {}
-  toast(fechou ? "Formulário recebido! Fechamos a aba para você." : "Formulário recebido! Pode fechar a aba do formulário.");
+  if (fechou) { toast("Formulário recebido! Fechamos a aba para você."); return; }
+  // O navegador não deixou a página fechar a aba (o Google isola a aba do formulário):
+  // chama o cliente de volta pelo título da aba do chat até ele voltar.
+  toast("Formulário recebido! Pode fechar a aba do formulário e voltar aqui.");
+  const titulo = document.title; let alterna = false;
+  const pisca = setInterval(() => { document.title = (alterna = !alterna) ? "✔ Formulário recebido! Volte aqui" : titulo; }, 1000);
+  const parar = () => { if (document.visibilityState === "visible") { clearInterval(pisca); document.title = titulo; document.removeEventListener("visibilitychange", parar); } };
+  document.addEventListener("visibilitychange", parar);
+  parar();
 }
 msgs.addEventListener("click", (e) => {
   const a = e.target.closest && e.target.closest("a.cta");
